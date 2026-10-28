@@ -1,0 +1,17 @@
+# Built or installed on the host, and rebuilt in the image
+**/node_modules
+**/dist
+**/build
+**/.gradle
+
+# Local data
+**/kijkbuis.toml
+**/kijkbuis.db*
+
+# Not needed to build
+.git
+.idea
+.claude
+docs
+*.iml
+**/.DS_Store

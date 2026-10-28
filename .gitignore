@@ -1,0 +1,8 @@
+.gradle/
+.idea/
+.DS_Store
+build/
+dist/
+node_modules/
+kijkbuis.toml
+kijkbuis.db*

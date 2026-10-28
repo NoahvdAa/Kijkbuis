@@ -1,0 +1,80 @@
+# Kijkbuis configuration.
+
+[server]
+# Address and port the webserver listens on.
+host = "0.0.0.0"
+port = 6742
+# The URL users reach Kijkbuis on, without a trailing slash. Used to build the SSO redirect URI
+# (<public-url>/api/auth/callback) and to send users back after logging in.
+# Cookies are only marked Secure when this starts with https://.
+public-url = "http://localhost:6742"
+# The directory with the built frontend (frontend/dist) to serve next to the API. Leave empty to only serve the API,
+# such as during development, when Vite serves the frontend. The Docker image sets this for you.
+frontend-dir = ""
+
+[database]
+# Path to the SQLite database file.
+path = "kijkbuis.db"
+
+[auth]
+# OpenID Connect issuer URL. Everything else is discovered via <issuer>/.well-known/openid-configuration.
+issuer = ""
+client-id = ""
+# Leave empty to authenticate as a public client (PKCE only).
+client-secret = ""
+scopes = ["openid", "profile", "email"]
+# Claim in the ID token or userinfo response that lists the user's groups.
+groups-claim = "groups"
+# How long a login stays valid, in hours.
+session-lifetime-hours = 720
+
+# Which groups grant which privileges. Admins always have every privilege.
+[auth.privileges]
+admin = ["kijkbuis-admins"]
+transcode = ["kijkbuis-transcode"]
+
+[streaming]
+# Path to the ffmpeg binary.
+ffmpeg-path = "ffmpeg"
+# Streams that nobody requests anything from for this long are stopped, in seconds.
+idle-timeout-seconds = 30
+# How long to wait for a stream's first segment before giving up, in seconds.
+startup-timeout-seconds = 20
+
+# Transcoding converts video to H.264, which every browser can play. It happens when a user picks a lower quality,
+# or automatically when their browser can't play a channel's video codec or the channel is interlaced. Only users with
+# the transcode privilege may transcode.
+[transcoding]
+# The libx264 preset: faster presets use less CPU, slower ones give better quality at the same bitrate.
+preset = "veryfast"
+# Browsers show interlaced video (common for TV broadcasts) with combing, so it's deinterlaced while transcoding.
+# Double rate turns every field into a frame (e.g. 50i becomes 50p), which keeps motion as smooth as on TV. Turn it off
+# to keep the channel's frame rate instead (e.g. 25p), which takes about half the CPU but makes motion less fluid.
+deinterlace-double-rate = true
+
+# The qualities users can pick. Each is the size of a 16:9 picture of that height (e.g. 720 is 1280x720): channels are
+# scaled down to fit in it, keeping their aspect ratio, and never up. Users are only offered qualities up to the size of
+# the channel they're watching.
+[[transcoding.profiles]]
+id = "1080p"
+name = "1080p"
+height = 1080
+bitrate-kbps = 6000
+
+[[transcoding.profiles]]
+id = "720p"
+name = "720p"
+height = 720
+bitrate-kbps = 3000
+
+[[transcoding.profiles]]
+id = "480p"
+name = "480p"
+height = 480
+bitrate-kbps = 1200
+
+[[transcoding.profiles]]
+id = "360p"
+name = "360p"
+height = 360
+bitrate-kbps = 700
