@@ -3,6 +3,7 @@ package nl.noahvanderaa.kijkbuis;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -40,14 +41,21 @@ final class MockPlaylistServer implements AutoCloseable {
     }
 
     void serve(@NotNull String path, int status, byte @NotNull [] body) {
-        this.responses.put(path, new Response(status, body, 0));
+        this.serve(path, status, null, body);
+    }
+
+    /**
+     * @param contentType the Content-Type to respond with, or null to leave it out
+     */
+    void serve(@NotNull String path, int status, @Nullable String contentType, byte @NotNull [] body) {
+        this.responses.put(path, new Response(status, body, 0, contentType));
     }
 
     /**
      * Serves a body slowly, like a live stream, until the client disconnects or the body runs out.
      */
     void serveStream(@NotNull String path, byte @NotNull [] body, int bytesPerSecond) {
-        this.responses.put(path, new Response(200, body, bytesPerSecond));
+        this.responses.put(path, new Response(200, body, bytesPerSecond, null));
     }
 
     /**
@@ -70,7 +78,7 @@ final class MockPlaylistServer implements AutoCloseable {
 
     private void handle(@NotNull HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
-        Response response = this.responses.getOrDefault(path, new Response(404, "Not found".getBytes(StandardCharsets.UTF_8), 0));
+        Response response = this.responses.getOrDefault(path, new Response(404, "Not found".getBytes(StandardCharsets.UTF_8), 0, null));
         if (response.bytesPerSecond() <= 0) {
             String etag = "\"" + Integer.toHexString(Arrays.hashCode(response.body())) + "\"";
             int status = response.status() == 200 && etag.equals(exchange.getRequestHeaders().getFirst("If-None-Match")) ? 304 : response.status();
@@ -78,6 +86,9 @@ final class MockPlaylistServer implements AutoCloseable {
 
             if (response.status() == 200) {
                 exchange.getResponseHeaders().add("ETag", etag);
+            }
+            if (response.contentType() != null) {
+                exchange.getResponseHeaders().add("Content-Type", response.contentType());
             }
             byte[] body = status == 304 ? new byte[0] : response.body();
             exchange.sendResponseHeaders(status, body.length == 0 ? -1 : body.length);
@@ -101,7 +112,7 @@ final class MockPlaylistServer implements AutoCloseable {
         }
     }
 
-    private record Response(int status, byte @NotNull [] body, int bytesPerSecond) {
+    private record Response(int status, byte @NotNull [] body, int bytesPerSecond, @Nullable String contentType) {
     }
 
 }

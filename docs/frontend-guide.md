@@ -33,6 +33,9 @@ Logging in goes through SSO, and the backend handles the whole flow.
 - `GET /api/channels` lists every channel the user can watch, in playlist order. Add `?playlist=<id>` for one
   playlist. Each channel has:
   `id, playlistId, name, group, logoUrl, channelNumber, tvgId, epgChannelId, now, next`
+- `logoUrl` is `null` or a path on Kijkbuis (`/api/channels/<id>/logo?v=…`), which fetches the logo from wherever the
+  playlist says, since browsers can't always reach that. The version changes with the logo, so it can be cached for
+  good. It responds `502` if the logo can't be loaded; show something else in its place.
 - `now` and `next` are programmes or `null`. A programme looks like
   `{ startsAt, endsAt, title, subtitle, description, category, iconUrl, posterUrl, backdropUrl }`.
 - The images come straight from the EPG, any of them can be `null`. `posterUrl` is portrait, `backdropUrl` is

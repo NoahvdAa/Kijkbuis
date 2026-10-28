@@ -87,7 +87,8 @@ class PlaylistApiTest {
         assertEquals("NL", one.get("group").getAsString());
         assertEquals(1, one.get("channelNumber").getAsInt());
         assertEquals("one.nl", one.get("tvgId").getAsString());
-        assertEquals("http://logos.example/one.png", one.get("logoUrl").getAsString());
+        // Browsers get the logo through Kijkbuis, see ChannelLogoTest
+        assertTrue(one.get("logoUrl").getAsString().startsWith("/api/channels/" + one.get("id").getAsString() + "/logo?v="));
         assertEquals(playlist.get("id"), one.get("playlistId"));
         assertFalse(one.has("streamUrl"), "Stream URLs contain provider credentials, viewers must not see them");
         assertEquals("Channel Two", channels.get(1).get("name").getAsString());

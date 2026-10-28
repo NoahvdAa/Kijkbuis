@@ -226,7 +226,7 @@ public class Stream implements KBSerializable {
         obj.addProperty("id", this.id.toString());
         obj.addProperty("channelId", this.channel.id().toString());
         obj.addProperty("channelName", this.channel.name());
-        obj.addProperty("channelLogoUrl", this.channel.logoUrl());
+        obj.addProperty("channelLogoUrl", this.channel.logoPath());
         obj.addProperty("playlistUrl", "/live/" + this.playbackToken + "/" + PLAYLIST);
         obj.addProperty("quality", this.quality);
         obj.addProperty("transcoding", this.plan.transcode());

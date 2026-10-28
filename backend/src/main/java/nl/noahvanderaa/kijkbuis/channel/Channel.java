@@ -16,7 +16,7 @@ import java.util.UUID;
  * @param playlistId    the playlist the channel comes from
  * @param name          the channel name
  * @param groupTitle    the group the playlist puts the channel in
- * @param logoUrl       the URL of the channel logo
+ * @param logoUrl       the URL of the channel logo, which browsers get through {@link #logoPath()}
  * @param streamUrl     the upstream stream URL, which usually contains provider credentials
  * @param tvgId              the ID the playlist uses to match the channel with EPG data
  * @param epgChannelOverride the EPG channel an admin mapped this channel to, used instead of the tvg-id
@@ -42,6 +42,18 @@ public record Channel(
         return this.epgChannelOverride != null ? this.epgChannelOverride : this.tvgId;
     }
 
+    /**
+     * @return where browsers get the channel's logo, or null if it has none. It goes through Kijkbuis, since browsers
+     * can't always reach the logo's host. The version changes with the logo's URL, so browsers can keep it for good.
+     */
+    @Nullable
+    public String logoPath() {
+        if (this.logoUrl == null) {
+            return null;
+        }
+        return "/api/channels/" + this.id + "/logo?v=" + Integer.toHexString(this.logoUrl.hashCode());
+    }
+
     @Override
     @NotNull
     public JsonObject serialize(@NotNull User user) {
@@ -51,7 +63,7 @@ public record Channel(
         obj.addProperty("playlistId", this.playlistId.toString());
         obj.addProperty("name", this.name);
         obj.addProperty("group", this.groupTitle);
-        obj.addProperty("logoUrl", this.logoUrl);
+        obj.addProperty("logoUrl", this.logoPath());
         obj.addProperty("channelNumber", this.channelNumber);
         obj.addProperty("tvgId", this.tvgId);
         obj.addProperty("epgChannelId", this.epgChannelId());

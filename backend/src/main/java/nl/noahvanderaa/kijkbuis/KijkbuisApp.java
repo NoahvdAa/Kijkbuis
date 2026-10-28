@@ -14,6 +14,7 @@ import io.undertow.util.StatusCodes;
 import nl.noahvanderaa.kijkbuis.auth.OidcClient;
 import nl.noahvanderaa.kijkbuis.auth.SessionManager;
 import nl.noahvanderaa.kijkbuis.channel.ChannelManager;
+import nl.noahvanderaa.kijkbuis.channel.LogoCache;
 import nl.noahvanderaa.kijkbuis.config.KijkbuisConfig;
 import nl.noahvanderaa.kijkbuis.database.Database;
 import nl.noahvanderaa.kijkbuis.epg.EpgManager;
@@ -24,6 +25,7 @@ import nl.noahvanderaa.kijkbuis.http.handler.auth.CallbackHandler;
 import nl.noahvanderaa.kijkbuis.http.handler.auth.LoginHandler;
 import nl.noahvanderaa.kijkbuis.http.handler.auth.LogoutHandler;
 import nl.noahvanderaa.kijkbuis.http.handler.channel.GetChannelHandler;
+import nl.noahvanderaa.kijkbuis.http.handler.channel.GetChannelLogoHandler;
 import nl.noahvanderaa.kijkbuis.http.handler.channel.GetGuideHandler;
 import nl.noahvanderaa.kijkbuis.http.handler.channel.ListChannelsHandler;
 import nl.noahvanderaa.kijkbuis.http.handler.channel.UpdateChannelHandler;
@@ -66,6 +68,7 @@ public class KijkbuisApp {
     private static final Logger LOGGER = LogManager.getLogger(KijkbuisApp.class);
     private final Database database = new Database();
     private final UpstreamClient upstream = new UpstreamClient();
+    private final LogoCache logoCache = new LogoCache(this.upstream);
     private KijkbuisConfig config;
     private UserManager userManager;
     private SessionManager sessionManager;
@@ -129,6 +132,7 @@ public class KijkbuisApp {
                 .get("/api/playlists/{playlist}/epg-channels", new ListEpgChannelsHandler(this))
                 .get("/api/channels", new ListChannelsHandler(this))
                 .get("/api/channels/{channel}", new GetChannelHandler(this))
+                .get("/api/channels/{channel}/logo", new GetChannelLogoHandler(this))
                 .add(Methods.PATCH, "/api/channels/{channel}", new UpdateChannelHandler(this))
                 .get("/api/guide", new GetGuideHandler(this))
                 .get("/api/profiles", new ListProfilesHandler(this))
@@ -216,6 +220,11 @@ public class KijkbuisApp {
     @NotNull
     public OidcClient oidcClient() {
         return this.oidcClient;
+    }
+
+    @NotNull
+    public LogoCache logoCache() {
+        return this.logoCache;
     }
 
     @NotNull
