@@ -9,8 +9,36 @@ permissions:
   packages: write
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      # The streaming tests run a real ffmpeg, and skip themselves without one
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Build and test
+        run: ./gradlew build
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        # Only needed to see what went wrong
+        if: failure()
+        with:
+          name: test-reports
+          path: '*/build/reports/tests/'
+
   build:
     name: Build
+    # Only images whose tests pass are built and pushed
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Check out code

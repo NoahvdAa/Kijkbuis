@@ -6,3 +6,5 @@ dist/
 node_modules/
 kijkbuis.toml
 kijkbuis.db*
+# Where the dev server loads plugins from, and keeps their data
+server/plugins/

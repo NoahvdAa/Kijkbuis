@@ -10,22 +10,25 @@ COPY frontend/ ./
 RUN npm run build
 
 
-# Builds the backend into /build/build/install/backend
-FROM eclipse-temurin:25-jdk AS backend
+# Builds the server into /build/server/build/install/kijkbuis
+FROM eclipse-temurin:25-jdk AS server
 WORKDIR /build
-COPY backend/gradlew backend/settings.gradle.kts backend/build.gradle.kts ./
-COPY backend/gradle ./gradle
-COPY backend/src ./src
+COPY gradlew settings.gradle.kts gradle.properties ./
+COPY gradle ./gradle
+# Gradle wants every project in settings.gradle.kts to be there, even the ones the server doesn't need
+COPY api ./api
+COPY server ./server
+COPY plugin-watchhistory ./plugin-watchhistory
 # The tests need ffmpeg and take a while, so they're left to CI. The libraries come out of Gradle's cache readable for
 # root only, while Kijkbuis doesn't run as root.
-RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon installDist \
-    && chmod -R a+rX build/install/backend
+RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon :server:installDist \
+    && chmod -R a+rX server/build/install/kijkbuis
 
 
 # Builds a Java runtime with only the modules Kijkbuis uses, which is less than half the size of a full one. It's built
 # on Alpine so it matches the runtime image's C library.
 FROM eclipse-temurin:25-jdk-alpine AS java
-COPY --from=backend /build/build/install/backend/lib /lib-to-scan
+COPY --from=server /build/server/build/install/kijkbuis/lib /lib-to-scan
 # jdeps finds what the code uses. jdk.charsets has the less common encodings, which an EPG could be in.
 RUN modules="$(jdeps --ignore-missing-deps --print-module-deps --multi-release 25 /lib-to-scan/*.jar)" \
     && jlink --add-modules "$modules,jdk.charsets" --strip-debug --no-man-pages --no-header-files --compress zip-6 \
@@ -43,7 +46,7 @@ RUN apk add --no-cache ffmpeg \
 COPY --from=java /java /opt/java
 ENV JAVA_HOME=/opt/java
 ENV PATH="$JAVA_HOME/bin:$PATH"
-COPY --from=backend /build/build/install/backend /app
+COPY --from=server /build/server/build/install/kijkbuis /app
 COPY --from=frontend /build/dist /app/frontend
 # Used when the config doesn't set server.frontend-dir
 ENV KIJKBUIS_FRONTEND_DIR=/app/frontend
@@ -53,4 +56,4 @@ WORKDIR /data
 VOLUME /data
 EXPOSE 6742
 # On the first start, this writes a default config to /data/kijkbuis.toml and stops, so it can be filled in
-ENTRYPOINT ["/app/bin/backend", "/data/kijkbuis.toml"]
+ENTRYPOINT ["/app/bin/kijkbuis", "/data/kijkbuis.toml"]

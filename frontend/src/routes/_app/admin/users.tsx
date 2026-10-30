@@ -21,12 +21,6 @@ function UsersPage() {
 	const now = useNow();
 
 	return <AdminSection title={`Users · ${users.length}`}>
-		<p className="max-w-prose text-sm text-muted">
-			People show up here once they've logged in. Their groups come from your identity provider, and the config
-			decides which groups get which privileges. Signing someone out also stops what they're watching, and their
-			groups are read again when they log back in.
-		</p>
-
 		<ul className="divide-y divide-line border-y border-line">
 			{users.map((user) => <li key={user.id}><UserRow user={user} isMe={user.id === me.id} now={now}/></li>)}
 		</ul>

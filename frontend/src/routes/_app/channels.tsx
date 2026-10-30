@@ -8,6 +8,7 @@ import {ChannelLogo} from '#/components/ChannelLogo';
 import {EpgImage} from '#/components/EpgImage';
 import {fieldClassName} from '#/components/Field';
 import {MenuError, MenuScreen} from '#/components/MenuScreen';
+import {ProgrammeTitle, programmeTitleText} from '#/components/ProgrammeTitle';
 
 export const Route = createFileRoute('/_app/channels')({
 	loader: () => api<Channel[]>('/api/channels'),
@@ -102,7 +103,7 @@ function ChannelRow({channel, now, screenLabel, onWatch}: ChannelRowProps) {
 	return <button
 		type="button"
 		onClick={onWatch}
-		aria-label={`Watch ${channel.name}${channel.now ? `, now: ${channel.now.title}` : ''}`}
+		aria-label={`Watch ${channel.name}${channel.now ? `, now: ${programmeTitleText(channel.now)}` : ''}`}
 		className="grid w-full grid-cols-[3rem_1fr] items-center gap-x-4 px-2 py-3 text-left hover:bg-raised focus-visible:bg-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:grid-cols-[3ch_3.5rem_1fr_minmax(0,16rem)] md:grid-cols-[3ch_3.5rem_6rem_1fr_minmax(0,16rem)]"
 	>
 		<span className="hidden font-mono text-sm text-muted tabular-nums sm:block">{channel.channelNumber}</span>
@@ -117,7 +118,7 @@ function ChannelRow({channel, now, screenLabel, onWatch}: ChannelRowProps) {
 			{channel.now
 				? <>
 					<p className="truncate text-sm text-muted">
-						<span className="font-mono tabular-nums">{formatTime(channel.now.startsAt)}</span> {channel.now.title}
+						<span className="font-mono tabular-nums">{formatTime(channel.now.startsAt)}</span> <ProgrammeTitle programme={channel.now}/>
 					</p>
 					<div className="h-0.5 bg-line" aria-hidden="true">
 						<div className="h-full bg-accent" style={{width: `${progressOf(channel.now, now) * 100}%`}}/>
@@ -127,7 +128,7 @@ function ChannelRow({channel, now, screenLabel, onWatch}: ChannelRowProps) {
 		</div>
 
 		<p className="hidden truncate text-sm text-muted sm:block">
-			{channel.next && <><span className="font-mono tabular-nums">{formatTime(channel.next.startsAt)}</span> {channel.next.title}</>}
+			{channel.next && <><span className="font-mono tabular-nums">{formatTime(channel.next.startsAt)}</span> <ProgrammeTitle programme={channel.next}/></>}
 		</p>
 	</button>;
 }

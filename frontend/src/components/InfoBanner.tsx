@@ -2,6 +2,7 @@ import {formatTime, progressOf, useNow} from '#/lib/time';
 import type {Channel} from '#/lib/types';
 import {ChannelLogo} from './ChannelLogo';
 import {EpgImage} from './EpgImage';
+import {episodeOf} from './ProgrammeTitle';
 
 type InfoBannerProps = {
 	channel: Channel
@@ -23,7 +24,7 @@ export function InfoBanner({channel, visible, raised}: InfoBannerProps) {
 		aria-hidden={!visible}
 		className={`pointer-events-none absolute inset-x-0 z-[5] transition-[opacity,bottom] duration-300 motion-reduce:transition-none ${visible ? 'opacity-100' : 'opacity-0'} ${raised ? 'bottom-12' : 'bottom-0'}`}
 	>
-		<div className="flex items-end gap-[2.5cqw] bg-screen/85 p-[max(0.5rem,2.5cqw)]">
+		<div className="flex items-end gap-[2.5cqw] bg-screen/80 p-[max(0.5rem,2.5cqw)]">
 			{programme?.posterUrl
 				? <EpgImage src={programme.posterUrl} className="hidden aspect-[2/3] h-[clamp(5rem,15cqw,10rem)] shrink-0 bg-raised object-cover @md:block"/>
 				: programme?.iconUrl
@@ -39,7 +40,7 @@ export function InfoBanner({channel, visible, raised}: InfoBannerProps) {
 				{programme
 					? <>
 						<p className="truncate text-[clamp(0.8rem,3cqw,1.75rem)] font-medium leading-tight">{programme.title}</p>
-						{programme.subtitle && <p className="hidden truncate text-[clamp(0.7rem,1.8cqw,1rem)] @md:block">{programme.subtitle}</p>}
+						{episodeOf(programme) && <p className="hidden truncate text-[clamp(0.7rem,1.8cqw,1rem)] @md:block">{episodeOf(programme)}</p>}
 						<div className="flex items-center gap-[1.5cqw]">
 							<span className="shrink-0 font-mono text-[clamp(0.55rem,1.5cqw,0.8rem)] text-muted tabular-nums">
 								{formatTime(programme.startsAt)}–{formatTime(programme.endsAt)}

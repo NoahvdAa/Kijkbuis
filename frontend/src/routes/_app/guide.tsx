@@ -9,6 +9,7 @@ import {Button} from '#/components/Button';
 import {ChannelLogo} from '#/components/ChannelLogo';
 import {EpgImage} from '#/components/EpgImage';
 import {MenuError, MenuScreen} from '#/components/MenuScreen';
+import {episodeOf, ProgrammeTitle} from '#/components/ProgrammeTitle';
 
 export const Route = createFileRoute('/_app/guide')({
 	loader: () => api<Channel[]>('/api/channels'),
@@ -275,10 +276,16 @@ function ProgrammeCell({channel, programme, start, end, now, onSelect}: Programm
 		// Clipped rather than hidden, which would stop the text inside from sticking
 		className={`absolute inset-y-0 overflow-clip border-r border-line text-left hover:bg-raised focus-visible:z-[1] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${airing ? 'bg-raised' : ''} ${ends <= now ? 'text-muted' : ''}`}
 	>
-		{/* Sticks to the left edge, so the title of a programme that started earlier stays readable */}
-		<span className="sticky left-(--guide-channel-width) inline-block max-w-full px-3 py-2.5 align-top">
-			<span className="block truncate text-sm">{programme.title}</span>
-			<span className="block truncate font-mono text-xs text-muted tabular-nums">{formatTime(begins)}–{formatTime(ends)}</span>
+		{/*
+			Sticks to the left edge, so the title of a programme that started earlier stays readable. Sticky text can't
+			leave the box it's in, so that box is twice as wide as the programme: text as wide as the programme can still
+			slide all the way along, and the programme cuts off its end instead of its start.
+		*/}
+		<span className="block w-[200%]">
+			<span className="sticky left-(--guide-channel-width) inline-block max-w-1/2 px-3 py-2.5 align-top">
+				<span className="block truncate text-sm"><ProgrammeTitle programme={programme}/></span>
+				<span className="block truncate font-mono text-xs text-muted tabular-nums">{formatTime(begins)}–{formatTime(ends)}</span>
+			</span>
 		</span>
 		{airing && <span aria-hidden="true" className="absolute bottom-0 left-0 h-0.5 bg-accent" style={{width: `${progressOf(programme, now) * 100}%`}}/>}
 	</button>;
@@ -314,7 +321,7 @@ function ProgrammeDetails({selection: {channel, programme}, now, onWatch, onClos
 					{channel.name} · {formatDay(begins, now)} {formatTime(begins)}–{formatTime(ends)}
 				</p>
 				<h2 className="text-xl font-medium">{programme.title}</h2>
-				{programme.subtitle && <p>{programme.subtitle}</p>}
+				{episodeOf(programme) && <p>{episodeOf(programme)}</p>}
 				{programme.description && <p className="max-h-32 overflow-y-auto text-sm text-fg/75">{programme.description}</p>}
 				<div className="mt-2 flex flex-wrap gap-2">
 					<Button autoFocus onClick={() => onWatch(channel)}>

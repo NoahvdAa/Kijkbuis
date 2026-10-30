@@ -2,6 +2,7 @@ import {createFileRoute, Link} from '@tanstack/react-router';
 import {useCallback} from 'react';
 import {api} from '#/lib/api';
 import {playlistStatus, useAction, useReloadEvery} from '#/lib/admin';
+import {loadPluginSections} from '#/lib/plugins';
 import {codecName} from '#/lib/media';
 import {AUTO_QUALITY, useProfiles} from '#/lib/profiles';
 import {formatAgo, formatDuration, useNow} from '#/lib/time';
@@ -9,11 +10,16 @@ import type {ActiveStream, Playlist, Profile} from '#/lib/types';
 import {AdminSection, Badge, ErrorText, StatusLight} from '#/components/admin/AdminParts';
 import {Button, smallButtonClassName} from '#/components/Button';
 import {ChannelLogo} from '#/components/ChannelLogo';
+import {PluginSections} from '#/components/PluginSections';
 
 export const Route = createFileRoute('/_app/admin/')({
 	loader: async () => {
-		const [streams, playlists] = await Promise.all([api<ActiveStream[]>('/api/streams'), api<Playlist[]>('/api/playlists')]);
-		return {streams, playlists};
+		const [streams, playlists, sections] = await Promise.all([
+			api<ActiveStream[]>('/api/streams'),
+			api<Playlist[]>('/api/playlists'),
+			loadPluginSections('admin-overview'),
+		]);
+		return {streams, playlists, sections};
 	},
 	component: OverviewPage,
 });
@@ -22,7 +28,7 @@ export const Route = createFileRoute('/_app/admin/')({
  * What's going on: who's watching what, and whether the playlists are doing fine.
  */
 function OverviewPage() {
-	const {streams, playlists} = Route.useLoaderData();
+	const {streams, playlists, sections} = Route.useLoaderData();
 	const now = useNow(5_000);
 	const profiles = useProfiles(true);
 	useReloadEvery(Route.id, 5_000);
@@ -43,6 +49,8 @@ function OverviewPage() {
 				</ul>
 				: <p className="text-muted">There are no playlists yet. Add one to get channels.</p>}
 		</AdminSection>
+
+		<PluginSections sections={sections}/>
 	</div>;
 }
 

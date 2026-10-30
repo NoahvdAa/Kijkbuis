@@ -2,14 +2,20 @@ import {createFileRoute, useNavigate} from '@tanstack/react-router';
 import {useState} from 'react';
 import {ApiError} from '#/lib/api';
 import {logout} from '#/lib/auth';
+import {loadPluginSections} from '#/lib/plugins';
 import {MenuScreen} from '#/components/MenuScreen';
 import {Button} from '#/components/Button';
+import {PluginSections} from '#/components/PluginSections';
 import {PRIVILEGE_NAMES, Tags} from '#/components/Tags';
 
-export const Route = createFileRoute('/_app/account')({component: AccountPage});
+export const Route = createFileRoute('/_app/account')({
+	loader: () => loadPluginSections('account'),
+	component: AccountPage,
+});
 
 function AccountPage() {
 	const {user} = Route.useRouteContext();
+	const sections = Route.useLoaderData();
 	const navigate = useNavigate();
 	const [loggingOut, setLoggingOut] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -37,6 +43,10 @@ function AccountPage() {
 				<Tags values={user.groups}/>
 			</Detail>
 		</dl>
+
+		{sections.length > 0 && <div className="mt-12 grid gap-12">
+			<PluginSections sections={sections}/>
+		</div>}
 
 		<div className="mt-12 grid justify-items-start gap-3">
 			<Button onClick={logOut} disabled={loggingOut}>{loggingOut ? 'Logging out…' : 'Log out'}</Button>

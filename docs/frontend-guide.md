@@ -147,7 +147,56 @@ The `error` message is fine to show as is.
 Each tile is simply its own stream: start, play and stop them independently, and mute all but one. For small tiles,
 consider picking a lower quality if the user may transcode.
 
-## 5. Admin screens
+## 5. Plugin sections
+
+Plugins can add sections to some pages. `GET /api/ui/<slot>` returns them for the current user, where the slot is
+`account` or `admin-overview` (admins only, `403` otherwise):
+
+```json
+[ { "plugin": "watchhistory", "title": "Recently watched", "components": [ ... ] } ]
+```
+
+Each component has a `type`:
+
+| Type    | Fields                                                                                          |
+|---------|-------------------------------------------------------------------------------------------------|
+| `text`  | `text`, with line breaks to keep                                                                |
+| `stats` | `stats`: `{ label, value }` each                                                                |
+| `list`  | `items`: `{ title, subtitle, detail, time, imageUrl }` each, and `emptyText` for an empty list  |
+| `table` | `columns` (headings), `rows` (a cell per column each), and `emptyText` for an empty table       |
+| `form`  | `action`, `inputs`, `submitLabel` and `successText`, see below                                  |
+
+A form's inputs all have `type`, `name`, `label` and `help`, plus:
+
+| Type        | Fields                                                       | Sent as                                 |
+|-------------|--------------------------------------------------------------|-----------------------------------------|
+| `text`      | `value`, `placeholder`, `required`, `maxLength`, `multiline` | A string                                |
+| `number`    | `value`, `min`, `max`, `unit`, `required` (whole numbers)    | A number, or `null` if left empty       |
+| `checkbox`  | `value`                                                      | `true` or `false`                       |
+| `select`    | `value`, `options`: `{ value, label }` each                  | The picked option's `value`             |
+| `dateRange` | `value`: `{ from, to }` or `null`, `required`                | `{ from, to }`, or `null` if left empty |
+
+A date range's days are dates such as `2026-10-30`, both included. Send both or neither, with `to` no earlier than
+`from`.
+
+To save a form, POST a JSON object with each input's value under its `name` to `action`, which is
+`/api/plugins/<plugin id>/<action>`. `204` means it's saved: show `successText` and load the sections again. Otherwise
+show the `error` message: `400` is the plugin saying what's wrong with the values, and `404` means the plugin doesn't
+handle the form (anymore).
+
+When saving a form or loading a plugin's page (see "Plugins" below), send the browser's time zone in an `X-Time-Zone`
+header, such as `Europe/Amsterdam` (`Intl.DateTimeFormat().resolvedOptions().timeZone`). Plugins use it to tell which
+days the user means. Without it, they get the server's.
+
+- Everything is plain text. A list's `emptyText`, and an item's `subtitle`, `detail`, `time` and `imageUrl` can be
+  `null`.
+- A table cell is text, a number, `{ time }` or `null`. Show numbers in the viewer's format, lined up on the right if
+  their column has nothing else, and times in the viewer's time zone.
+- Show `time` in the viewer's time zone. `imageUrl` is always http(s); load it with `referrerpolicy="no-referrer"` and
+  show it as a 16:9 thumbnail.
+- Skip component types you don't know. If the request fails, show the page without the sections.
+
+## 6. Admin screens
 
 These require the `admin` privilege.
 
@@ -197,3 +246,20 @@ Admins also see `streamUrl` and `epgChannelOverride` on channels.
 - `DELETE /api/users/<id>/sessions` signs a user out everywhere and stops their streams, like stopping them one by one
   does. Their groups are read again
   when they log back in, so this applies group changes in the identity provider right away.
+
+### Plugins
+
+- `GET /api/plugins` lists the enabled plugins, in the order they were enabled: `{ id, name, version, description,
+  apiVersion, iconUrl, pages }`. `description` and `iconUrl` can be `null`. `pages` are `{ id, title, subPages }`, the
+  pages the plugin adds to the admin screens, with `subPages` as `{ id, title }`. Link to them in the admin menu, with
+  the sub-pages below their page while it or one of them is open.
+- `iconUrl` is a path on Kijkbuis (`/api/plugins/<id>/icon?v=…`), which any logged-in user can load. The version
+  changes with the icon, so it can be cached for good.
+- `GET /api/plugins/<id>/pages/<page id>` puts a page together: `{ plugin, parent, id, title, sections }`, with
+  sections like the ones in "Plugin sections". Pass what's filled in in its filters as the query, such as
+  `?days=30&user=noah`. For a sub-page, add its ID: `/api/plugins/<id>/pages/<page id>/<sub-page id>`. `parent` is the
+  page's ID then, and `null` otherwise.
+- A page's sections can have a `filter` component: `{ type: "filter", inputs, submitLabel }`, with inputs like a
+  form's. Applying it opens the page again with each input's value in the query: checkboxes as `true` or `false`, date
+  ranges as their days with two dots in between (`period=2026-10-01..2026-10-30`), and other inputs left out when
+  they're empty. Keep the query in the page's URL, so lookups can be bookmarked.

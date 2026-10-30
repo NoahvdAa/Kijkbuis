@@ -21,6 +21,9 @@ import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppAdminPlaylistsIndexRouteImport } from './routes/_app/admin/playlists/index'
 import { Route as AppAdminPlaylistsPlaylistIdRouteImport } from './routes/_app/admin/playlists/$playlistId'
+import { Route as AppAdminPluginsIndexRouteImport } from './routes/_app/admin/plugins/index'
+import { Route as AppAdminPluginsPluginPageIndexRouteImport } from './routes/_app/admin/plugins/$plugin/$page/index'
+import { Route as AppAdminPluginsPluginPageSubPageRouteImport } from './routes/_app/admin/plugins/$plugin/$page/$subPage'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -82,6 +85,23 @@ const AppAdminPlaylistsPlaylistIdRoute =
     path: '/playlists/$playlistId',
     getParentRoute: () => AppAdminRoute,
   } as any)
+const AppAdminPluginsIndexRoute = AppAdminPluginsIndexRouteImport.update({
+  id: '/plugins/',
+  path: '/plugins/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminPluginsPluginPageIndexRoute =
+  AppAdminPluginsPluginPageIndexRouteImport.update({
+    id: '/plugins/$plugin/$page/',
+    path: '/plugins/$plugin/$page/',
+    getParentRoute: () => AppAdminRoute,
+  } as any)
+const AppAdminPluginsPluginPageSubPageRoute =
+  AppAdminPluginsPluginPageSubPageRouteImport.update({
+    id: '/plugins/$plugin/$page/$subPage',
+    path: '/plugins/$plugin/$page/$subPage',
+    getParentRoute: () => AppAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -95,6 +115,9 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AppAdminIndexRoute
   '/admin/playlists/$playlistId': typeof AppAdminPlaylistsPlaylistIdRoute
   '/admin/playlists/': typeof AppAdminPlaylistsIndexRoute
+  '/admin/plugins/': typeof AppAdminPluginsIndexRoute
+  '/admin/plugins/$plugin/$page/$subPage': typeof AppAdminPluginsPluginPageSubPageRoute
+  '/admin/plugins/$plugin/$page/': typeof AppAdminPluginsPluginPageIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -107,6 +130,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AppAdminIndexRoute
   '/admin/playlists/$playlistId': typeof AppAdminPlaylistsPlaylistIdRoute
   '/admin/playlists': typeof AppAdminPlaylistsIndexRoute
+  '/admin/plugins': typeof AppAdminPluginsIndexRoute
+  '/admin/plugins/$plugin/$page/$subPage': typeof AppAdminPluginsPluginPageSubPageRoute
+  '/admin/plugins/$plugin/$page': typeof AppAdminPluginsPluginPageIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +148,9 @@ export interface FileRoutesById {
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/admin/playlists/$playlistId': typeof AppAdminPlaylistsPlaylistIdRoute
   '/_app/admin/playlists/': typeof AppAdminPlaylistsIndexRoute
+  '/_app/admin/plugins/': typeof AppAdminPluginsIndexRoute
+  '/_app/admin/plugins/$plugin/$page/$subPage': typeof AppAdminPluginsPluginPageSubPageRoute
+  '/_app/admin/plugins/$plugin/$page/': typeof AppAdminPluginsPluginPageIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +166,9 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/playlists/$playlistId'
     | '/admin/playlists/'
+    | '/admin/plugins/'
+    | '/admin/plugins/$plugin/$page/$subPage'
+    | '/admin/plugins/$plugin/$page/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -149,6 +181,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/playlists/$playlistId'
     | '/admin/playlists'
+    | '/admin/plugins'
+    | '/admin/plugins/$plugin/$page/$subPage'
+    | '/admin/plugins/$plugin/$page'
   id:
     | '__root__'
     | '/_app'
@@ -163,6 +198,9 @@ export interface FileRouteTypes {
     | '/_app/admin/'
     | '/_app/admin/playlists/$playlistId'
     | '/_app/admin/playlists/'
+    | '/_app/admin/plugins/'
+    | '/_app/admin/plugins/$plugin/$page/$subPage'
+    | '/_app/admin/plugins/$plugin/$page/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -256,6 +294,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminPlaylistsPlaylistIdRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/plugins/': {
+      id: '/_app/admin/plugins/'
+      path: '/plugins'
+      fullPath: '/admin/plugins/'
+      preLoaderRoute: typeof AppAdminPluginsIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/plugins/$plugin/$page/': {
+      id: '/_app/admin/plugins/$plugin/$page/'
+      path: '/plugins/$plugin/$page'
+      fullPath: '/admin/plugins/$plugin/$page/'
+      preLoaderRoute: typeof AppAdminPluginsPluginPageIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/plugins/$plugin/$page/$subPage': {
+      id: '/_app/admin/plugins/$plugin/$page/$subPage'
+      path: '/plugins/$plugin/$page/$subPage'
+      fullPath: '/admin/plugins/$plugin/$page/$subPage'
+      preLoaderRoute: typeof AppAdminPluginsPluginPageSubPageRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
@@ -264,6 +323,9 @@ interface AppAdminRouteChildren {
   AppAdminIndexRoute: typeof AppAdminIndexRoute
   AppAdminPlaylistsPlaylistIdRoute: typeof AppAdminPlaylistsPlaylistIdRoute
   AppAdminPlaylistsIndexRoute: typeof AppAdminPlaylistsIndexRoute
+  AppAdminPluginsIndexRoute: typeof AppAdminPluginsIndexRoute
+  AppAdminPluginsPluginPageSubPageRoute: typeof AppAdminPluginsPluginPageSubPageRoute
+  AppAdminPluginsPluginPageIndexRoute: typeof AppAdminPluginsPluginPageIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
@@ -271,6 +333,9 @@ const AppAdminRouteChildren: AppAdminRouteChildren = {
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAdminPlaylistsPlaylistIdRoute: AppAdminPlaylistsPlaylistIdRoute,
   AppAdminPlaylistsIndexRoute: AppAdminPlaylistsIndexRoute,
+  AppAdminPluginsIndexRoute: AppAdminPluginsIndexRoute,
+  AppAdminPluginsPluginPageSubPageRoute: AppAdminPluginsPluginPageSubPageRoute,
+  AppAdminPluginsPluginPageIndexRoute: AppAdminPluginsPluginPageIndexRoute,
 }
 
 const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(

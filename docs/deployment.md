@@ -24,7 +24,8 @@ This writes `data/kijkbuis.toml` and stops. Fill in at least:
 
 - `[server] public-url`: the URL people reach Kijkbuis on, such as `https://tv.example.com`. Register
   `<public-url>/api/auth/callback` as the redirect URI with your identity provider.
-- `[auth]`: the `issuer`, `client-id` and `client-secret`, and which groups get which privileges.
+- `[auth]`: the `issuer`, `client-id` and `client-secret`, and which groups get which privileges. To let everyone
+  change the quality without being in a group, use `transcode = ["*"]`. Admin can only be given to groups.
 
 Leave `frontend-dir` empty: the image serves its own frontend.
 
@@ -54,6 +55,8 @@ services:
   time out sooner.
 - Transcoding (lower qualities, unsupported codecs, interlaced channels) runs libx264 on the CPU, once per viewer.
 - Outside Docker, build the frontend with `npm run build` and point `server.frontend-dir` at `frontend/dist`.
+- Plugins go in `data/plugins`, which Kijkbuis creates on its first start. Restart it to load new ones, see
+  [plugins.md](plugins.md). Each plugin keeps its data in a directory named after it next to the jars.
 - Kijkbuis currently does NOT re-use connections to a source, nor does it provide a way to limit the number of
   concurrent viewers for a playlist. If you have a source that can only handle a few connections, consider putting a
   proxy in front of it that does connection pooling, like [Dispatcharr](https://github.com/dispatcharr/dispatcharr).

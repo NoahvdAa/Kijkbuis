@@ -1,0 +1,9 @@
+{
+  "id": "test",
+  "name": "Test plugin",
+  "version": "1.0.0",
+  "description": "Blocks the channel named Blocked, and writes down what it sees.",
+  "icon": "icon.svg",
+  "main": "nl.noahvanderaa.kijkbuis.testplugin.TestPlugin",
+  "apiVersion": "0.0"
+}

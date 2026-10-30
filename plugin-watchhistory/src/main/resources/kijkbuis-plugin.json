@@ -1,0 +1,9 @@
+{
+	"id": "watchhistory",
+	"name": "Watch History",
+	"description": "Keeps track of what every user watches.",
+	"version": "${version}",
+	"icon": "icon.png",
+	"main": "nl.noahvanderaa.kijkbuis.watchhistory.WatchHistoryPlugin",
+	"apiVersion": "0.0"
+}

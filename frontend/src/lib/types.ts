@@ -114,3 +114,82 @@ export type UserDetails = {
 	/** How many browsers they're logged in on */
 	sessionCount: number
 };
+
+/** A section a plugin adds to a page */
+export type PluginSection = {
+	/** The ID of the plugin it comes from */
+	plugin: string
+	title: string
+	components: PluginComponent[]
+};
+
+export type PluginComponent =
+	| {type: 'text', text: string}
+	| {type: 'stats', stats: {label: string, value: string}[]}
+	| {type: 'list', items: PluginListItem[], emptyText: string | null}
+	| {type: 'table', columns: string[], rows: PluginTableCell[][], emptyText: string | null}
+	| PluginForm
+	| PluginFilter;
+
+/** Text, a number, a time, or nothing */
+export type PluginTableCell = string | number | {time: string} | null;
+
+export type PluginListItem = {
+	title: string
+	subtitle: string | null
+	detail: string | null
+	/** When it happened */
+	time: string | null
+	imageUrl: string | null
+};
+
+/** A form a plugin added, which is saved by sending its values to the plugin's endpoint */
+export type PluginForm = {
+	type: 'form'
+	/** The plugin's endpoint, to POST the values to as a JSON object */
+	action: string
+	inputs: PluginInput[]
+	submitLabel: string
+	successText: string
+};
+
+export type PluginInput = {name: string, label: string, help: string | null} & (
+	| {type: 'text', value: string, placeholder: string | null, required: boolean, maxLength: number | null, multiline: boolean}
+	| {type: 'number', value: number | null, min: number | null, max: number | null, unit: string | null, required: boolean}
+	| {type: 'checkbox', value: boolean}
+	| {type: 'select', value: string | null, options: {value: string, label: string}[]}
+	| {type: 'dateRange', value: PluginDateRange | null, required: boolean}
+);
+
+/** Days such as 2026-10-30, the last one included */
+export type PluginDateRange = {from: string, to: string};
+
+/** A plugin that's enabled, as admins see it */
+export type PluginDetails = {
+	id: string
+	name: string
+	version: string
+	description: string | null
+	/** The Kijkbuis version it's made for */
+	apiVersion: string
+	iconUrl: string | null
+	/** The pages it adds to the admin screens */
+	pages: {id: string, title: string, subPages: {id: string, title: string}[]}[]
+};
+
+/** Inputs that change what a plugin's page shows, by opening it again with what's filled in */
+export type PluginFilter = {
+	type: 'filter'
+	inputs: PluginInput[]
+	submitLabel: string
+};
+
+/** A page a plugin adds to the admin screens */
+export type PluginPage = {
+	plugin: string
+	/** The page it's a sub-page of, if any */
+	parent: string | null
+	id: string
+	title: string
+	sections: PluginSection[]
+};
