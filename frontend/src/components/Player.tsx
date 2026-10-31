@@ -510,7 +510,7 @@ function stopStream(id: string, keepalive: boolean = false) {
 /**
  * Loads a channel's details, and loads them again when the programme changes.
  */
-function useChannel(channelId: string | null): Channel | null {
+export function useChannel(channelId: string | null): Channel | null {
 	const [channel, setChannel] = useState<Channel | null>(null);
 	const [refresh, setRefresh] = useState(0);
 

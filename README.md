@@ -5,7 +5,7 @@ A modern, web-based IPTV viewer for every device.
 ## Features
 
 - Web-based interface for desktop and mobile
-- Multi-viewer
+- Multi-viewer, in a grid or with screens wherever you want them, such as picture in picture
 - Automatic transcoding of unsupported codecs
 - Quality selection per stream
 - Optional TV-guide support
