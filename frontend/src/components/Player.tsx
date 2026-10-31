@@ -1,6 +1,7 @@
 import Hls from 'hls.js';
 import {type ReactNode, useCallback, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from '#/lib/api';
+import type {AudioTrack} from '#/lib/audioTracks';
 import {
     canFullscreenVideo,
     playableVideoCodecs,
@@ -10,6 +11,7 @@ import {
 } from '#/lib/media';
 import {type Tile, useTv} from '#/lib/tv';
 import type {Channel, Profile} from '#/lib/types';
+import {AudioPicker} from './AudioPicker';
 import {ExitFullscreenIcon, FullscreenIcon, SpeakerIcon, SpeakerMutedIcon, StopIcon} from './Icons';
 import {InfoBanner} from './InfoBanner';
 import {newPlayerDebug, PlayerStats, resetPlayerDebug} from './PlayerStats';
@@ -27,6 +29,11 @@ export type StreamInfo = {
     /** The size the channel is shown at, if known */
     sourceWidth: number | null
     sourceHeight: number | null
+    /**
+     * The audio tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
+     * only one (or none).
+     */
+    audioTracks: AudioTrack[]
 };
 
 type StreamState =
@@ -62,9 +69,9 @@ type PlayerProps = {
     active: boolean
     /** The qualities the user can pick from, none if they may not */
     profiles: Profile[]
-    /** Whether the quality menu is open */
-    menuOpen: boolean
-    onMenuOpenChange: (open: boolean) => void
+    /** Which of the screen's menus is open, if any: quality or audio */
+    openMenu: string | null
+    onMenuOpenChange: (menu: string, open: boolean) => void
     /** Selects this screen, in multiview */
     onSelect: () => void
     /** Shows the TV's controls, as if the mouse moved */
@@ -84,7 +91,7 @@ export function Player({
                            tvAwake,
                            active,
                            profiles,
-                           menuOpen,
+                           openMenu,
                            onMenuOpenChange,
                            onSelect,
                            onWake
@@ -97,6 +104,28 @@ export function Player({
     const [playback, setPlayback] = useState<Playback>('starting');
     const stalled = useDelayedTrue(playback === 'stalled', STALL_DELAY);
     const fullscreen = useFullscreenElement() === container.current && container.current !== null;
+    const setQualityOpen = useCallback((open: boolean) => onMenuOpenChange('quality', open), [onMenuOpenChange]);
+    const setAudioOpen = useCallback((open: boolean) => onMenuOpenChange('audio', open), [onMenuOpenChange]);
+
+    // Which audio track plays, for channels with several. It stays when the quality changes, which starts a new
+    // stream of the same channel, and goes back to the first for a new channel.
+    const [audioTrack, setAudioTrack] = useState(0);
+    const audioTrackRef = useRef(audioTrack);
+    audioTrackRef.current = audioTrack;
+    // The hls.js that plays the stream, if the browser uses it
+    const hlsPlayer = useRef<Hls | null>(null);
+    useEffect(() => {
+        setAudioTrack(0);
+    }, [tile.channelId]);
+    useEffect(() => {
+        if (stream.status === 'playing' && audioTrack >= stream.stream.audioTracks.length) {
+            // The new stream has fewer tracks, so the first one plays
+            setAudioTrack(0);
+        }
+    }, [stream, audioTrack]);
+    useEffect(() => {
+        switchAudioTrack(hlsPlayer.current, video.current, audioTrack);
+    }, [audioTrack]);
     // For the stats panel, which the d key shows on the selected screen
     const debug = useRef(newPlayerDebug());
     const [statsOpen, setStatsOpen] = useState(false);
@@ -201,10 +230,13 @@ export function Player({
         };
 
         let hls: Hls | null = null;
+        // Switches to the audio track the viewer picked once the stream's tracks are known
+        const onAudioTracks = () => switchAudioTrack(hls, element, audioTrackRef.current);
         if (Hls.isSupported()) {
             hls = new Hls({backBufferLength: 30, maxBufferLength: 20});
             debug.current.hls = hls;
             hls.on(Hls.Events.MANIFEST_PARSED, play);
+            hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, onAudioTracks);
             hls.on(Hls.Events.BUFFER_CODECS, (_event, data) => {
                 debug.current.videoCodec = data.video?.codec ?? data.audiovideo?.codec ?? null;
                 debug.current.audioCodec = data.audio?.codec ?? null;
@@ -240,13 +272,17 @@ export function Player({
             // Older iPhones can't use hls.js, but play HLS themselves
             element.src = stream.stream.playlistUrl;
             element.addEventListener('error', lost);
+            element.addEventListener('loadedmetadata', onAudioTracks);
             play();
         }
+        hlsPlayer.current = hls;
 
         return () => {
             hls?.destroy();
+            hlsPlayer.current = null;
             debug.current.hls = null;
             element.removeEventListener('error', lost);
+            element.removeEventListener('loadedmetadata', onAudioTracks);
             element.removeAttribute('src');
             element.load();
         };
@@ -356,14 +392,23 @@ export function Player({
                         <span className="normal-case tracking-normal text-muted"> · {channel.now.title}</span>}
                 </button>
 
+                {stream.status === 'playing' && stream.stream.audioTracks.length > 1 && <AudioPicker
+                    tracks={stream.stream.audioTracks}
+                    selected={audioTrack}
+                    screen={multiview ? number : null}
+                    open={openMenu === 'audio'}
+                    onOpenChange={setAudioOpen}
+                    onPick={setAudioTrack}
+                />}
+
                 {profiles.length > 0 && <QualityPicker
                     quality={tile.quality}
                     profiles={profiles}
                     sourceWidth={stream.status === 'playing' ? stream.stream.sourceWidth : null}
                     sourceHeight={stream.status === 'playing' ? stream.stream.sourceHeight : null}
                     screen={multiview ? number : null}
-                    open={menuOpen}
-                    onOpenChange={onMenuOpenChange}
+                    open={openMenu === 'quality'}
+                    onOpenChange={setQualityOpen}
                     onPick={(quality) => setQuality(tile.id, quality)}
                 />}
 
@@ -376,6 +421,26 @@ export function Player({
             </div>
         </div>}
     </div>;
+}
+
+/**
+ * Plays one of the stream's audio tracks, if it has that many. hls.js fetches that track's playlist from then on.
+ * Browsers that play HLS themselves list the tracks in the order of the playlist.
+ */
+function switchAudioTrack(hls: Hls | null, element: HTMLVideoElement | null, index: number) {
+    if (hls) {
+        if (index < hls.audioTracks.length && hls.audioTrack !== index) {
+            hls.audioTrack = index;
+        }
+        return;
+    }
+    // Only Safari has these, so they're not in TypeScript's types
+    const tracks = (element as (HTMLVideoElement & {audioTracks?: ArrayLike<{enabled: boolean}>}) | null)?.audioTracks;
+    if (tracks && index < tracks.length) {
+        for (let i = 0; i < tracks.length; i++) {
+            tracks[i].enabled = i === index;
+        }
+    }
 }
 
 type StatusProps = {

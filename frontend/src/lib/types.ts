@@ -100,6 +100,13 @@ export type ActiveStream = {
     sourceInterlaced: boolean
     startedAt: string
     user: { id: string, username: string, displayName: string }
+    /** What the stream keeps in memory: its segments, init files and playlists */
+    memory: StreamMemory
+};
+
+export type StreamMemory = {
+    files: number
+    bytes: number
 };
 
 /** A user as admins see them */

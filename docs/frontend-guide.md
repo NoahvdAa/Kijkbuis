@@ -79,7 +79,8 @@ const response = await fetch('/api/streams', {
     body: JSON.stringify({ channelId, quality: 'auto', videoCodecs }),
 });
 const stream = await response.json();
-// { id, channelId, playlistUrl, quality, transcoding, sourceVideoCodec, sourceInterlaced, sourceWidth, sourceHeight }
+// { id, channelId, playlistUrl, quality, transcoding, sourceVideoCodec, sourceInterlaced, sourceWidth, sourceHeight,
+//   audioTracks }
 ```
 
 The request only returns once the first segment is ready, which usually takes a few seconds. Show a loading state in
@@ -141,6 +142,24 @@ The `error` message is fine to show as is.
   1. Start a new stream with `quality: '<profile id>'`.
   2. Switch the player over to it.
   3. Stop the old stream.
+
+### Picking an audio track
+
+Some channels have several audio tracks, such as other languages or audio description. `audioTracks` lists the ones
+the viewer can switch between, as `{ language, audioDescription }`:
+
+- `language` is the code the channel labels the track with, such as `dut`, `nld` or `eng`, or `null` if it doesn't.
+  `new Intl.DisplayNames(['en'], { type: 'language' }).of(code)` turns it into a name. `qaa` is often the original
+  language.
+- `audioDescription` is whether the track describes what's on screen, for people who can't see it.
+- The list is empty when there's nothing to switch between: channels with one audio track, and channels without video,
+  which only play their first track.
+
+Each track has its own playlist, so switching doesn't need a new stream. The tracks are in the playlist's audio group
+in the same order: set `hls.audioTrack` to the track's index, or enable it in `video.audioTracks` where the browser
+plays HLS itself. hls.js only knows the tracks once it has loaded the playlist (`Hls.Events.AUDIO_TRACKS_UPDATED`).
+The first track plays unless another is picked. A new stream of the same channel, such as for another quality, starts
+with the first track too, so switch it again if the viewer picked another.
 
 ### Multiview
 
@@ -235,7 +254,8 @@ Admins also see `streamUrl` and `epgChannelOverride` on channels.
 ### Who's watching
 
 - `GET /api/streams` lists every running stream, the longest running first. Each one is a stream as described above,
-  plus `channelName`, `channelLogoUrl`, `startedAt` and `user` (`{ id, username, displayName, privileges, groups }`).
+  plus `channelName`, `channelLogoUrl`, `startedAt`, `user` (`{ id, username, displayName, privileges, groups }`) and
+  `memory`: `{ files, bytes }`, what the stream keeps in memory (its segments, init files and playlists).
 - Admins can stop anyone's stream with `DELETE /api/streams/<id>`. The viewer's player then gets `410 Gone` for its
   files (for 10 minutes), and should show the error instead of starting a new stream like it would after a `404`.
 

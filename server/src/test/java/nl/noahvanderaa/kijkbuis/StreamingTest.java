@@ -3,6 +3,7 @@ package nl.noahvanderaa.kijkbuis;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import nl.noahvanderaa.kijkbuis.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static nl.noahvanderaa.kijkbuis.TestServer.json;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +72,13 @@ class StreamingTest {
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/anamorphic.ts", "testsrc2=size=720x576:rate=25", "-vf", "setsar=64/45", "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
                 "-pix_fmt", "yuv420p", "-flags", "+ildct+ilme", "-x264-params", "interlaced=1:tff=1", "-c:a", "mp2");
 
+        // Dutch, and English with audio description
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/two-audio.ts", "testsrc2=size=320x240:rate=25", 2, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p", "-c:a", "mp2", "-metadata:s:a:0", "language=dut", "-metadata:s:a:1", "language=eng", "-disposition:a:1", "visual_impaired");
+        // Changes from three audio tracks to two in one test
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/changing-audio.ts", "testsrc2=size=320x240:rate=25", 3, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p", "-c:a", "mp2");
+
         upstream.serve("/channels.m3u", 200, """
                 #EXTM3U
                 #EXTINF:-1,Live
@@ -81,10 +91,14 @@ class StreamingTest {
                 %s
                 #EXTINF:-1,Broken
                 %s
+                #EXTINF:-1,Two audio tracks
+                %s
+                #EXTINF:-1,Changing audio
+                %s
                 #EXTINF:-1,Local file
                 file:///etc/hosts
                 """.formatted(upstream.url("/live.ts"), upstream.url("/mpeg2.ts"), upstream.url("/mpeg2-unwatched.ts"),
-                upstream.url("/anamorphic.ts"), upstream.url("/missing.ts")));
+                upstream.url("/anamorphic.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts")));
 
         server = TestServer.start(tempDir, """
                 [streaming]
@@ -145,6 +159,51 @@ class StreamingTest {
 
         assertEquals(List.of("h264,320,240,1:1", "aac"), probe(viewer, stream), "Video should be copied, AC-3 audio converted to AAC");
         stopStream(viewer, stream);
+    }
+
+    @Test
+    void givesEveryAudioTrackAPlaylistOfItsOwn() throws Exception {
+        // The first time, Kijkbuis doesn't know the channel has two tracks yet, and starts again once ffmpeg says so
+        for (int attempt = 0; attempt < 2; attempt++) {
+            JsonObject stream = startStream(viewer, "Two audio tracks", null, null);
+            assertEquals(JsonParser.parseString("""
+                    [{"language": "dut", "audioDescription": false}, {"language": "eng", "audioDescription": true}]
+                    """), stream.get("audioTracks"));
+
+            String playlistUrl = stream.get("playlistUrl").getAsString();
+            String master = server.get(playlistUrl, viewer).body();
+            assertEquals(2, master.lines().filter((line) -> line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")).count(), master);
+            assertTrue(master.contains("LANGUAGE=\"dut\""), master);
+            assertTrue(master.contains("AUDIO=\"group_audio\""), master);
+
+            String streamPath = playlistUrl.substring(0, playlistUrl.lastIndexOf('/') + 1);
+            assertEquals(List.of("h264,320,240,1:1"), probe(viewer, streamPath + "stream_0.m3u8"), "The video's playlist has no audio");
+            assertEquals(List.of("aac"), probe(viewer, streamPath + "stream_1.m3u8"));
+            assertEquals(List.of("aac"), probe(viewer, streamPath + "stream_2.m3u8"));
+            assertEquals("no-cache", server.get(streamPath + "stream_1.m3u8", viewer).headers().firstValue("cache-control").orElseThrow(),
+                    "The renditions' playlists change every segment");
+            for (int rendition = 0; rendition <= 2; rendition++) {
+                String playlist = server.get(streamPath + "stream_" + rendition + ".m3u8", viewer).body();
+                assertTrue(playlist.contains("#EXT-X-PROGRAM-DATE-TIME:"), "Players line the playlists up by time: " + playlist);
+            }
+            stopStream(viewer, stream);
+        }
+    }
+
+    @Test
+    void startsAgainWhenAChannelsAudioTracksChange() throws Exception {
+        JsonObject first = startStream(viewer, "Changing audio", null, null);
+        assertEquals(3, first.getAsJsonArray("audioTracks").size());
+        stopStream(viewer, first);
+
+        // ffmpeg is told to use three tracks, and stops when it finds two
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/changing-audio.ts", "testsrc2=size=320x240:rate=25", 2, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p", "-c:a", "mp2");
+        JsonObject second = startStream(viewer, "Changing audio", null, null);
+        assertEquals(2, second.getAsJsonArray("audioTracks").size());
+        String master = server.get(second.get("playlistUrl").getAsString(), viewer).body();
+        assertEquals(2, master.lines().filter((line) -> line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")).count(), master);
+        stopStream(viewer, second);
     }
 
     @Test
@@ -279,6 +338,24 @@ class StreamingTest {
     }
 
     @Test
+    void adminsSeeHowMuchMemoryStreamsTake() throws Exception {
+        JsonObject stream = startStream(viewer, "Live", null, null);
+
+        JsonObject listed = null;
+        for (JsonElement element : json(server.get("/api/streams", admin)).getAsJsonArray()) {
+            if (element.getAsJsonObject().get("id").equals(stream.get("id"))) {
+                listed = element.getAsJsonObject();
+            }
+        }
+        assertNotNull(listed);
+        JsonObject memory = listed.getAsJsonObject("memory");
+        // At least the playlist, the init file and a segment
+        assertTrue(memory.get("files").getAsInt() >= 3, memory.toString());
+        assertTrue(memory.get("bytes").getAsLong() > 0, memory.toString());
+        stopStream(viewer, stream);
+    }
+
+    @Test
     void loggingOutStopsThatSessionsStreams() throws Exception {
         String phone = server.login("viewer-4", "twice", List.of());
         String laptop = server.login("viewer-4", "twice", List.of());
@@ -383,7 +460,16 @@ class StreamingTest {
      */
     @NotNull
     private static List<String> probe(@NotNull String session, @NotNull JsonObject stream) throws Exception {
-        String output = ffprobe(download(session, stream), "-show_entries", "stream=codec_type,codec_name,width,height,sample_aspect_ratio");
+        return probe(session, stream.get("playlistUrl").getAsString());
+    }
+
+    /**
+     * @param playlistUrl the playlist of the stream, or of one of its renditions
+     * @see #probe(String, JsonObject)
+     */
+    @NotNull
+    private static List<String> probe(@NotNull String session, @NotNull String playlistUrl) throws Exception {
+        String output = ffprobe(download(session, playlistUrl), "-show_entries", "stream=codec_type,codec_name,width,height,sample_aspect_ratio");
 
         // ffprobe lists fields in its own order: codec_name,codec_type,width,height,sample_aspect_ratio
         List<String> streams = new ArrayList<>();
@@ -399,20 +485,21 @@ class StreamingTest {
      */
     @NotNull
     private static String frameRate(@NotNull String session, @NotNull JsonObject stream) throws Exception {
-        return ffprobe(download(session, stream), "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate").strip();
+        return ffprobe(download(session, stream.get("playlistUrl").getAsString()), "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate").strip();
     }
 
     /**
-     * Downloads the stream's init segment and first media segment into one file.
+     * Downloads a playlist's init segment and first media segment into one file.
      */
     @NotNull
-    private static Path download(@NotNull String session, @NotNull JsonObject stream) throws Exception {
-        String playlistUrl = stream.get("playlistUrl").getAsString();
+    private static Path download(@NotNull String session, @NotNull String playlistUrl) throws Exception {
         String playlist = server.get(playlistUrl, session).body();
         String firstSegment = playlist.lines().filter((line) -> !line.startsWith("#") && !line.isBlank()).findFirst().orElseThrow();
         String streamPath = playlistUrl.substring(0, playlistUrl.lastIndexOf('/') + 1);
+        Matcher map = Pattern.compile("#EXT-X-MAP:URI=\"([^\"]+)\"").matcher(playlist);
+        assertTrue(map.find(), playlist);
 
-        byte[] init = file(session, streamPath + "init.mp4");
+        byte[] init = file(session, streamPath + map.group(1));
         assertEquals("ftyp", new String(init, 4, 4, StandardCharsets.US_ASCII));
         Path media = tempDir.resolve("probe-" + UUID.randomUUID() + ".mp4");
         Files.write(media, init);

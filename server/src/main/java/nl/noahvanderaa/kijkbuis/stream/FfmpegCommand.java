@@ -17,8 +17,27 @@ final class FfmpegCommand {
      */
     private static final int SOURCE_QUALITY_CRF = 21;
     private static final int SOURCE_QUALITY_MAX_BITRATE_KBPS = 20_000;
+    /**
+     * The group the audio tracks are in, when each has a playlist of its own. Players pick one track of a group.
+     */
+    private static final String AUDIO_GROUP = "audio";
+    /**
+     * The name of a rendition's playlist, where ffmpeg puts its number in place of %v, see {@link #renditionPlaylist}
+     */
+    private static final String RENDITION_PLAYLIST = "stream_%v.m3u8";
 
     private FfmpegCommand() {
+    }
+
+    /**
+     * When every audio track has a playlist of its own, the video and each audio track are a rendition, numbered from
+     * 0 in the order they're mapped: the video, then the audio tracks.
+     *
+     * @return the name of a rendition's playlist
+     */
+    @NotNull
+    static String renditionPlaylist(int rendition) {
+        return RENDITION_PLAYLIST.replace("%v", String.valueOf(rendition));
     }
 
     /**
@@ -27,7 +46,7 @@ final class FfmpegCommand {
      * @param deinterlaceDoubleRate whether deinterlacing turns every field into a frame, rather than every frame
      * @param streamUrl             the channel's stream URL
      * @param ingestUri             where ffmpeg should push the stream's files to, ending with a slash
-     * @param plan                  how to encode the video
+     * @param plan                  how to encode the video, and which audio tracks to keep
      */
     @NotNull
     static List<String> build(@NotNull String ffmpegPath, @NotNull String preset, boolean deinterlaceDoubleRate,
@@ -39,11 +58,19 @@ final class FfmpegCommand {
             command.addAll(List.of("-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5"));
         }
 
-        command.addAll(List.of(
-                "-i", streamUrl,
-                // Only the first video and audio track, either may be missing (e.g. for radio channels)
-                "-map", "0:v:0?", "-map", "0:a:0?"
-        ));
+        command.addAll(List.of("-i", streamUrl));
+        boolean separateAudio = !plan.audioTracks().isEmpty();
+        if (separateAudio) {
+            // The tracks ffmpeg found when it last played the channel. If one isn't there anymore, ffmpeg stops right
+            // after listing the channel's tracks, and the stream starts again with the ones it has now.
+            command.addAll(List.of("-map", "0:v:0"));
+            for (SourceAudio track : plan.audioTracks()) {
+                command.addAll(List.of("-map", "0:a:" + track.index()));
+            }
+        } else {
+            // Only the first video and audio track, either may be missing (e.g. for radio channels)
+            command.addAll(List.of("-map", "0:v:0?", "-map", "0:a:0?"));
+        }
 
         if (plan.transcode()) {
             command.addAll(List.of("-c:v", "libx264", "-preset", preset, "-profile:v", "high", "-pix_fmt", "yuv420p"));
@@ -81,15 +108,52 @@ final class FfmpegCommand {
                 "-hls_time", String.valueOf(SEGMENT_SECONDS),
                 "-hls_list_size", "6",
                 "-hls_segment_type", "fmp4",
-                "-hls_flags", "delete_segments",
-                "-hls_fmp4_init_filename", "init.mp4",
-                "-hls_segment_filename", ingestUri + "seg_%d.m4s",
+                // With a playlist per audio track, every segment gets the time it was recorded. Players use those to
+                // line up a track's playlist with the video's when switching to it. Otherwise they go by the segments'
+                // numbers, which drift apart: the video can only be cut at the channel's keyframes, so its segments
+                // are sometimes longer than the audio's. A track switched to then never finds its segment, and stalls.
+                "-hls_flags", separateAudio ? "delete_segments+program_date_time" : "delete_segments",
+                "-hls_fmp4_init_filename", "init.mp4"
+        ));
+        if (separateAudio) {
+            // Browsers only play the first audio track of a segment, so every track gets segments and a playlist of
+            // its own, and the player switches between those. A master playlist ties them together. %v is the number
+            // of the rendition, which ffmpeg adds to the names of the init files too.
+            command.addAll(List.of(
+                    "-hls_segment_filename", ingestUri + "seg_%v_%d.m4s",
+                    "-master_pl_name", Stream.PLAYLIST,
+                    "-var_stream_map", streamMap(plan.audioTracks())
+            ));
+        } else {
+            command.addAll(List.of("-hls_segment_filename", ingestUri + "seg_%d.m4s"));
+        }
+        command.addAll(List.of(
                 // Push the files to Kijkbuis over HTTP rather than writing them to disk
                 "-method", "PUT",
                 "-http_persistent", "1",
-                ingestUri + Stream.PLAYLIST
+                ingestUri + (separateAudio ? RENDITION_PLAYLIST : Stream.PLAYLIST)
         ));
         return command;
+    }
+
+    /**
+     * @return the renditions for ffmpeg's -var_stream_map: the video, with the audio tracks as a group of which the
+     * first plays unless the viewer picks another
+     */
+    @NotNull
+    private static String streamMap(@NotNull List<SourceAudio> audioTracks) {
+        StringBuilder map = new StringBuilder("v:0,agroup:" + AUDIO_GROUP);
+        for (int i = 0; i < audioTracks.size(); i++) {
+            map.append(" a:").append(i).append(",agroup:").append(AUDIO_GROUP);
+            // Only letters, see SourceAudio
+            if (audioTracks.get(i).language() != null) {
+                map.append(",language:").append(audioTracks.get(i).language());
+            }
+            if (i == 0) {
+                map.append(",default:yes");
+            }
+        }
+        return map.toString();
     }
 
 }

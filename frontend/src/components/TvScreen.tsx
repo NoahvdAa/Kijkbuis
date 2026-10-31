@@ -136,7 +136,7 @@ export function TvScreen({mode, user}: TvScreenProps) {
                     dragging={dragging}
                     canvas={canvas}
                     profiles={profiles}
-                    menuOpen={openMenu === tile.id}
+                    openMenu={openMenu?.startsWith(`${tile.id}/`) ? openMenu.slice(tile.id.length + 1) : null}
                     onMenuOpenChange={setMenuOpen}
                     onSelect={setActiveTile}
                     onWake={wake}
@@ -199,9 +199,10 @@ type TileViewProps = {
     /** The box the screens are in, which dragging them is measured against */
     canvas: RefObject<HTMLDivElement | null>
     profiles: Profile[]
-    /** Whether the screen's quality menu is open */
-    menuOpen: boolean
-    onMenuOpenChange: (tileId: string, open: boolean) => void
+    /** Which of the screen's menus is open, if any, see {@link Player} */
+    openMenu: string | null
+    /** Opens or closes one of the TV's menus, which for a screen's own menus is the screen's ID, a slash and the menu */
+    onMenuOpenChange: (menu: string, open: boolean) => void
     onSelect: (tileId: string) => void
     onWake: () => void
     onDraggingChange: (dragging: boolean) => void
@@ -221,7 +222,7 @@ function TileView({
                       dragging,
                       canvas,
                       profiles,
-                      menuOpen,
+                      openMenu,
                       onMenuOpenChange,
                       onSelect,
                       onWake,
@@ -229,7 +230,7 @@ function TileView({
                   }: TileViewProps) {
     const [hovered, setHovered] = useState(false);
     const select = useCallback(() => onSelect(tile.id), [onSelect, tile.id]);
-    const setMenuOpen = useCallback((open: boolean) => onMenuOpenChange(tile.id, open), [onMenuOpenChange, tile.id]);
+    const setMenuOpen = useCallback((menu: string, open: boolean) => onMenuOpenChange(`${tile.id}/${menu}`, open), [onMenuOpenChange, tile.id]);
 
     return <div
         // Slides to where it goes when the layout changes
@@ -251,11 +252,11 @@ function TileView({
                 multiview={multiview}
                 pip={pip}
                 // In multiview, only the screen under the mouse and the selected one show their controls
-                showControls={awake && (!multiview || hovered || active || menuOpen)}
+                showControls={awake && (!multiview || hovered || active || openMenu !== null)}
                 tvAwake={awake}
                 active={active}
                 profiles={profiles}
-                menuOpen={menuOpen}
+                openMenu={openMenu}
                 onMenuOpenChange={setMenuOpen}
                 onSelect={select}
                 onWake={onWake}

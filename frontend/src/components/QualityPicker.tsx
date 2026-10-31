@@ -3,6 +3,16 @@ import {useDismiss} from '#/lib/dismiss';
 import {AUTO_QUALITY, formatBitrate, profileSuits} from '#/lib/profiles';
 import type {Profile} from '#/lib/types';
 
+/** The button that opens a picker in a screen's control bar, such as the quality or audio picker */
+export const pickerButtonClassName = 'h-9 px-2 font-mono text-xs uppercase tracking-[0.15em] hover:bg-fg/15 focus-visible:outline-2 '
+    + 'focus-visible:-outline-offset-2 focus-visible:outline-accent';
+/** A picker's menu, which fits above the control bar, and scrolls on screens too small for every option */
+export const pickerMenuClassName = 'absolute right-0 bottom-full z-30 mb-1.5 grid max-h-[calc(100cqh-3.5rem)] min-w-52 overflow-y-auto border '
+    + 'border-line bg-panel py-1 shadow-2xl';
+/** An option in a picker's menu */
+export const pickerOptionClassName = 'flex items-baseline justify-between gap-6 px-3 py-1.5 text-left font-mono text-xs uppercase tracking-[0.15em] '
+    + 'hover:bg-fg/15 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent';
+
 type QualityPickerProps = {
     /** {@link AUTO_QUALITY} or a profile ID */
     quality: string
@@ -62,7 +72,7 @@ export function QualityPicker({
             aria-expanded={open}
             aria-haspopup="dialog"
             onClick={() => onOpenChange(!open)}
-            className={`h-9 px-2 font-mono text-xs uppercase tracking-[0.15em] hover:bg-fg/15 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? 'bg-fg/15' : ''}`}
+            className={`${pickerButtonClassName} ${open ? 'bg-fg/15' : ''}`}
         >
             {label}
         </button>
@@ -70,8 +80,7 @@ export function QualityPicker({
         {open && <div
             role="dialog"
             aria-label="Quality"
-            // Fits above the control bar, and scrolls on screens too small for every option
-            className="absolute right-0 bottom-full z-30 mb-1.5 grid max-h-[calc(100cqh-3.5rem)] min-w-52 overflow-y-auto border border-line bg-panel py-1 shadow-2xl"
+            className={pickerMenuClassName}
         >
             {options.map((option) => <button
                 key={option.id}
@@ -81,7 +90,7 @@ export function QualityPicker({
                     onPick(option.id);
                     onOpenChange(false);
                 }}
-                className={`flex items-baseline justify-between gap-6 px-3 py-1.5 text-left font-mono text-xs uppercase tracking-[0.15em] hover:bg-fg/15 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${option.id === quality ? 'text-accent' : ''}`}
+                className={`${pickerOptionClassName} ${option.id === quality ? 'text-accent' : ''}`}
             >
                 {option.name}
                 <span className="normal-case tracking-normal text-muted">{option.detail}</span>

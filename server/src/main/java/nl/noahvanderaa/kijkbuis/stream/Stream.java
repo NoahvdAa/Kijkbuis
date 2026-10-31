@@ -1,5 +1,6 @@
 package nl.noahvanderaa.kijkbuis.stream;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import nl.noahvanderaa.kijkbuis.channel.Channel;
 import nl.noahvanderaa.kijkbuis.net.KBSerializable;
@@ -16,11 +17,11 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,7 +55,13 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
     private final String quality;
     private final EncodingPlan plan;
     private final Map<String, byte[]> files = new ConcurrentHashMap<>();
-    private final CompletableFuture<Optional<SourceVideo>> sourceVideo = new CompletableFuture<>();
+    private final CompletableFuture<Source> source = new CompletableFuture<>();
+    /**
+     * What ffmpeg listed of the input so far, while working out the {@link #source}
+     */
+    private boolean listingInput = false;
+    private SourceVideo foundVideo = null;
+    private final List<SourceAudio> foundAudio = new ArrayList<>();
     private final CompletableFuture<Void> ready = new CompletableFuture<>();
     private final Deque<String> log = new ArrayDeque<>();
     private volatile long lastRequestedAt = System.currentTimeMillis();
@@ -97,20 +104,22 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
     }
 
     /**
-     * Waits until ffmpeg has looked at the channel and logged what its video is like. That happens before it produces
-     * anything, so there's still time to restart it with different settings.
+     * Waits until ffmpeg has looked at the channel and logged what its video and audio tracks are like. That happens
+     * before it produces anything, so there's still time to restart it with different settings. ffmpeg may also stop
+     * right after, such as when it was told to use an audio track the channel doesn't have (anymore).
      *
-     * @return the channel's video, or null if the channel has no video
+     * @return what the channel has
      * @throws IOException      if ffmpeg exited before that
      * @throws TimeoutException if it took too long
      */
-    @Nullable
-    SourceVideo awaitSourceVideo(@NotNull Duration timeout) throws IOException, TimeoutException, InterruptedException {
-        return await(this.sourceVideo, timeout).orElse(null);
+    @NotNull
+    Source awaitSource(@NotNull Duration timeout) throws IOException, TimeoutException, InterruptedException {
+        return await(this.source, timeout);
     }
 
     /**
-     * Waits until the first segment is available.
+     * Waits until the first segment is available, of the video and of every audio track that has a playlist of its
+     * own.
      *
      * @throws IOException      if ffmpeg exited before that
      * @throws TimeoutException if it took too long
@@ -128,11 +137,35 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         }
         this.files.put(name, data);
 
-        // ffmpeg only lists segments in the playlist once they're fully uploaded
-        if (name.equals(PLAYLIST) && new String(data, StandardCharsets.UTF_8).contains("#EXTINF") && this.ready.complete(null)) {
+        if (name.endsWith(".m3u8") && this.playable() && this.ready.complete(null)) {
             // Give the viewer the full idle timeout to start playing
             this.lastRequestedAt = System.currentTimeMillis();
         }
+    }
+
+    /**
+     * @return whether the player can start, which is when every playlist lists a segment. ffmpeg only lists segments
+     * once they're fully uploaded. With an audio playlist per track, that's the playlists of the video and each audio
+     * track, and the playlist that ties them together, which ffmpeg writes once they all have a segment.
+     */
+    private boolean playable() {
+        if (this.plan.audioTracks().isEmpty()) {
+            return this.listsSegment(PLAYLIST);
+        }
+        if (!this.files.containsKey(PLAYLIST)) {
+            return false;
+        }
+        for (int rendition = 0; rendition <= this.plan.audioTracks().size(); rendition++) {
+            if (!this.listsSegment(FfmpegCommand.renditionPlaylist(rendition))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean listsSegment(@NotNull String playlist) {
+        byte[] data = this.files.get(playlist);
+        return data != null && new String(data, StandardCharsets.UTF_8).contains("#EXTINF");
     }
 
     void deleteFile(@NotNull String name) {
@@ -147,6 +180,21 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
     public byte @Nullable [] file(@NotNull String name) {
         this.lastRequestedAt = System.currentTimeMillis();
         return this.files.get(name);
+    }
+
+    /**
+     * @return how much of what ffmpeg pushed is kept in memory: the segments, init files and playlists. ffmpeg deletes
+     * old segments as it adds new ones, so it stays about the same while the stream plays.
+     */
+    @NotNull
+    public Memory memory() {
+        int files = 0;
+        long bytes = 0;
+        for (byte[] data : this.files.values()) {
+            files++;
+            bytes += data.length;
+        }
+        return new Memory(files, bytes);
     }
 
     /**
@@ -290,14 +338,25 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         obj.addProperty("playlistUrl", "/live/" + this.playbackToken + "/" + PLAYLIST);
         obj.addProperty("quality", this.quality);
         obj.addProperty("transcoding", this.plan.transcode());
-        SourceVideo source = this.sourceVideo.isDone() && !this.sourceVideo.isCompletedExceptionally()
-                ? this.sourceVideo.join().orElse(null)
+        SourceVideo source = this.source.isDone() && !this.source.isCompletedExceptionally()
+                ? this.source.join().video()
                 : null;
         obj.addProperty("sourceVideoCodec", source != null ? source.codec() : null);
         obj.addProperty("sourceInterlaced", source != null && source.interlaced());
         // The size it's shown at, so non-square pixels are accounted for
         obj.addProperty("sourceWidth", source != null && source.width() > 0 ? source.width() : null);
         obj.addProperty("sourceHeight", source != null && source.height() > 0 ? source.height() : null);
+        // The tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
+        // nothing to switch between.
+        JsonArray audioTracks = new JsonArray();
+        for (SourceAudio track : this.plan.audioTracks()) {
+            JsonObject item = new JsonObject();
+            item.addProperty("language", track.language());
+            item.addProperty("audioDescription", track.audioDescription());
+            audioTracks.add(item);
+        }
+        obj.add("audioTracks", audioTracks);
+        obj.add("memory", this.memory().serialize());
         obj.addProperty("startedAt", this.startedAt.toString());
         obj.add("user", this.owner.serialize(user));
 
@@ -311,7 +370,7 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
                 // The stream URL usually contains provider credentials, keep those out of the logs
                 line = line.replace(this.channel.streamUrl(), "<stream url>");
                 LOGGER.debug("[ffmpeg {}] {}", this.id, line);
-                this.detectSourceVideo(line);
+                this.detectSource(line);
                 synchronized (this.log) {
                     if (this.log.size() == LOG_LINES) {
                         this.log.removeFirst();
@@ -324,19 +383,39 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         }
     }
 
-    private void detectSourceVideo(@NotNull String line) {
-        if (this.sourceVideo.isDone()) {
+    /**
+     * Collects what ffmpeg lists of the input, until it moves on to the output. Its output's streams are listed in the
+     * same way, so those are left out.
+     */
+    private synchronized void detectSource(@NotNull String line) {
+        if (this.source.isDone()) {
+            return;
+        }
+        if (line.startsWith("Input #")) {
+            this.listingInput = true;
+        } else if (!this.listingInput) {
+            return;
+        } else if (line.startsWith("Stream mapping:") || line.startsWith("Output #")) {
+            this.finishSource();
             return;
         }
 
         // The first video stream ffmpeg lists is the one that's used, since the command maps 0:v:0
-        SourceVideo source = SourceVideo.parse(line);
-        if (source != null) {
-            this.sourceVideo.complete(Optional.of(source));
-        } else if (line.startsWith("Stream mapping:") || line.startsWith("Output #")) {
-            // All input streams have been listed, and none were video
-            this.sourceVideo.complete(Optional.empty());
+        SourceVideo video = SourceVideo.parse(line);
+        if (video != null) {
+            if (this.foundVideo == null) {
+                this.foundVideo = video;
+            }
+            return;
         }
+        SourceAudio audio = SourceAudio.parse(line, this.foundAudio.size());
+        if (audio != null) {
+            this.foundAudio.add(audio);
+        }
+    }
+
+    private synchronized void finishSource() {
+        this.source.complete(new Source(this.foundVideo, this.foundAudio));
     }
 
     private void exited() {
@@ -348,8 +427,13 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         }
 
         int exitCode = this.process.exitValue();
-        if (!this.sourceVideo.isDone()) {
-            this.sourceVideo.completeExceptionally(new IOException("ffmpeg exited with code " + exitCode + " before it found the channel's codecs: " + this.logTail()));
+        synchronized (this) {
+            // It can stop right after listing the input, such as when an audio track it was told to use isn't there
+            if (this.listingInput) {
+                this.finishSource();
+            } else {
+                this.source.completeExceptionally(new IOException("ffmpeg exited with code " + exitCode + " before it found the channel's codecs: " + this.logTail()));
+            }
         }
         if (!this.ready.isDone()) {
             this.ready.completeExceptionally(new IOException("ffmpeg exited with code " + exitCode + " before the stream started: " + this.logTail()));
@@ -363,6 +447,24 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         synchronized (this.log) {
             return this.log.isEmpty() ? "(no output)" : String.join(" | ", this.log);
         }
+    }
+
+    /**
+     * How much of a stream is kept in memory.
+     *
+     * @param files how many files
+     * @param bytes their size in bytes
+     */
+    public record Memory(int files, long bytes) {
+
+        @NotNull
+        public JsonObject serialize() {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("files", this.files);
+            obj.addProperty("bytes", this.bytes);
+            return obj;
+        }
+
     }
 
     /**

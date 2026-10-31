@@ -73,9 +73,25 @@ final class MockPlaylistServer implements AutoCloseable {
      * @param encoding ffmpeg's options to encode the sample with
      */
     void serveSample(@NotNull Path dir, int seconds, @NotNull String path, @NotNull String video, @NotNull String... encoding) throws Exception {
+        this.serveSample(dir, seconds, path, video, 1, encoding);
+    }
+
+    /**
+     * Generates a sample with several audio tracks, each a tone of its own, and serves it like a live channel.
+     *
+     * @param audioTracks how many audio tracks the sample has
+     * @see #serveSample(Path, int, String, String, String...)
+     */
+    void serveSample(@NotNull Path dir, int seconds, @NotNull String path, @NotNull String video, int audioTracks, @NotNull String... encoding) throws Exception {
         Path sample = dir.resolve(path.substring(1));
-        List<String> command = new ArrayList<>(List.of("ffmpeg", "-hide_banner", "-loglevel", "error",
-                "-f", "lavfi", "-i", video, "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000", "-t", String.valueOf(seconds)));
+        List<String> command = new ArrayList<>(List.of("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", video));
+        for (int track = 0; track < audioTracks; track++) {
+            command.addAll(List.of("-f", "lavfi", "-i", "sine=frequency=" + (1000 + track * 500) + ":sample_rate=48000"));
+        }
+        command.addAll(List.of("-t", String.valueOf(seconds), "-map", "0:v"));
+        for (int track = 0; track < audioTracks; track++) {
+            command.addAll(List.of("-map", (track + 1) + ":a"));
+        }
         command.addAll(List.of(encoding));
         command.addAll(List.of("-f", "mpegts", sample.toString()));
         Process ffmpeg;

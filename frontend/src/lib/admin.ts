@@ -4,6 +4,21 @@ import {ApiError} from './api';
 import type {Playlist} from './types';
 
 /**
+ * @return a size for people, such as 840 kB or 12.4 MB
+ */
+export function formatBytes(bytes: number): string {
+    const units = ['B', 'kB', 'MB', 'GB'];
+    let value = bytes;
+    let unit = 0;
+    while (value >= 1000 && unit < units.length - 1) {
+        value /= 1000;
+        unit++;
+    }
+    const digits = unit > 0 && value < 10 ? 1 : 0;
+    return `${value.toLocaleString(undefined, {maximumFractionDigits: digits, minimumFractionDigits: digits})} ${units[unit]}`;
+}
+
+/**
  * @return a message for people about what went wrong
  */
 export function errorMessage(error: unknown): string {

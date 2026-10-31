@@ -1,7 +1,7 @@
 import {createFileRoute, Link} from '@tanstack/react-router';
 import {useCallback} from 'react';
 import {api} from '#/lib/api';
-import {playlistStatus, useAction, useReloadEvery} from '#/lib/admin';
+import {formatBytes, playlistStatus, useAction, useReloadEvery} from '#/lib/admin';
 import {loadPluginSections} from '#/lib/plugins';
 import {codecName} from '#/lib/media';
 import {AUTO_QUALITY, useProfiles} from '#/lib/profiles';
@@ -77,6 +77,12 @@ function StreamCard({stream, profiles, now}: { stream: ActiveStream, profiles: P
                 <Badge accent={stream.transcoding}>{stream.transcoding ? 'Transcoding' : 'Direct'}</Badge>
                 {stream.sourceVideoCodec && <Badge>{codecName(stream.sourceVideoCodec)}</Badge>}
                 {stream.sourceInterlaced && <Badge>Interlaced</Badge>}
+                {/* The stream's segments are kept in memory rather than on disk */}
+                <Badge>
+                    <span title={`${stream.memory.files} ${stream.memory.files === 1 ? 'file' : 'files'}: segments, init files and playlists`}>
+                        {formatBytes(stream.memory.bytes)} in memory
+                    </span>
+                </Badge>
             </ul>
             {stop.error && <ErrorText>{stop.error}</ErrorText>}
         </div>

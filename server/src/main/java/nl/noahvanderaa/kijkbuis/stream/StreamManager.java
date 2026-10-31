@@ -56,10 +56,10 @@ public class StreamManager {
      */
     private final Map<String, Instant> kickedPlaybackTokens = new ConcurrentHashMap<>();
     /**
-     * What each channel's video was like when it was last watched, so the next stream can start with the right
-     * settings.
+     * What each channel's video and audio tracks were like when it was last watched, so the next stream can start
+     * with the right settings.
      */
-    private final Map<UUID, SourceVideo> sourceVideos = new ConcurrentHashMap<>();
+    private final Map<UUID, Source> sources = new ConcurrentHashMap<>();
 
     public StreamManager(@NotNull KijkbuisConfig.StreamingConfig config, @NotNull KijkbuisConfig.TranscodingConfig transcodingConfig,
                          @NotNull EventBus eventBus) {
@@ -103,29 +103,25 @@ public class StreamManager {
         }
 
         Instant deadline = Instant.now().plus(this.config.startupTimeout());
-        SourceVideo knownSource = this.sourceVideos.get(channel.id());
+        Source knownSource = this.sources.get(channel.id());
         EncodingPlan plan = EncodingPlan.decide(profile, knownSource, playableCodecs, mayTranscode);
         if (plan == null) {
-            throw unplayable(knownSource);
+            throw unplayable(knownSource != null ? knownSource.video() : null);
         }
 
         Stream stream = this.launch(user, sessionId, channel, quality, plan);
         try {
-            SourceVideo source = stream.awaitSourceVideo(remaining(deadline));
-            if (source != null) {
-                this.sourceVideos.put(channel.id(), source);
-            } else {
-                this.sourceVideos.remove(channel.id());
-            }
+            Source source = stream.awaitSource(remaining(deadline));
+            this.sources.put(channel.id(), source);
 
             EncodingPlan actualPlan = EncodingPlan.decide(profile, source, playableCodecs, mayTranscode);
             if (actualPlan == null) {
                 this.discard(stream.id());
-                throw unplayable(source);
+                throw unplayable(source.video());
             }
             if (!actualPlan.equals(plan)) {
-                LOGGER.info("{} uses {} video, restarting its stream for {} with different settings", channel.name(),
-                        source != null ? source.describe() : "no", user.username());
+                LOGGER.info("{} has {}, restarting its stream for {} with different settings", channel.name(),
+                        source.describe(), user.username());
                 this.discard(stream.id());
                 stream = this.launch(user, sessionId, channel, quality, actualPlan);
             }

@@ -43,8 +43,8 @@ public class GetStreamFileHandler implements HttpHandler {
         }
 
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, contentType(name));
-        // The playlist changes every segment, segments themselves never change
-        exchange.getResponseHeaders().put(Headers.CACHE_CONTROL, name.equals(Stream.PLAYLIST) ? "no-cache" : "private, max-age=600");
+        // Playlists change every segment (except the one tying the renditions together), segments themselves never change
+        exchange.getResponseHeaders().put(Headers.CACHE_CONTROL, name.endsWith(".m3u8") ? "no-cache" : "private, max-age=600");
         exchange.getResponseSender().send(ByteBuffer.wrap(data));
     }
 

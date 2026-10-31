@@ -54,6 +54,8 @@ services:
   `https://`. Starting a channel can take up to the startup timeout (20 seconds by default), so don't let the proxy
   time out sooner.
 - Transcoding (lower qualities, unsupported codecs, interlaced channels) runs libx264 on the CPU, once per viewer.
+- Audio is always converted to AAC, which is cheap next to video. Channels with several audio tracks (up to 8) have
+  each converted, so viewers can switch between them.
 - Outside Docker, build the frontend with `npm run build` and point `server.frontend-dir` at `frontend/dist`.
 - Plugins go in `data/plugins`, which Kijkbuis creates on its first start. Restart it to load new ones, see
   [plugins.md](plugins.md). Each plugin keeps its data in a directory named after it next to the jars.
