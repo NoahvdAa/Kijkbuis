@@ -18,7 +18,8 @@ import java.util.Set;
  * @param interlaced whether the transcoded video is interlaced, so it's deinterlaced at the configured rate
  * @param hvc1Tag    whether to tag passed-through HEVC as hvc1 rather than hev1, which Safari needs
  */
-public record EncodingPlan(boolean transcode, @Nullable KijkbuisConfig.TranscodeProfile profile, boolean interlaced, boolean hvc1Tag) {
+public record EncodingPlan(boolean transcode, @Nullable KijkbuisConfig.TranscodeProfile profile, boolean interlaced,
+                           boolean hvc1Tag) {
 
     /**
      * The video codecs that can be passed through in fMP4 HLS, if the browser can decode them.

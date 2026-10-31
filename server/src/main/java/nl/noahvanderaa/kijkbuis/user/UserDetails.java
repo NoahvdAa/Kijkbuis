@@ -14,7 +14,8 @@ import java.time.Instant;
  * @param lastLoginAt  when they last logged in
  * @param sessionCount how many browsers they're logged in on
  */
-public record UserDetails(@NotNull User user, @NotNull Instant createdAt, @NotNull Instant lastLoginAt, int sessionCount) implements KBSerializable {
+public record UserDetails(@NotNull User user, @NotNull Instant createdAt, @NotNull Instant lastLoginAt,
+                          int sessionCount) implements KBSerializable {
 
     @Override
     @NotNull

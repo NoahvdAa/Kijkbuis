@@ -50,7 +50,8 @@ public class StartStreamHandler extends AuthenticatedHandler {
         UUID channelId;
         try {
             channelId = UUID.fromString(body.get("channelId").getAsString());
-        } catch (IllegalArgumentException | UnsupportedOperationException | IllegalStateException | NullPointerException ex) {
+        } catch (IllegalArgumentException | UnsupportedOperationException | IllegalStateException |
+                 NullPointerException ex) {
             throw new ApiException(StatusCodes.BAD_REQUEST, "channelId must be a channel ID");
         }
 

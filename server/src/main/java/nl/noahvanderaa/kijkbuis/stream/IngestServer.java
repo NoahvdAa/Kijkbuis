@@ -38,8 +38,8 @@ class IngestServer {
         this.server = Undertow.builder()
                 .addHttpListener(0, "127.0.0.1")
                 .setHandler(new BlockingHandler(this::handleRequest))
-				.setServerOption(UndertowOptions.MAX_ENTITY_SIZE, (long) MAX_FILE_SIZE)
-				.setServerOption(UndertowOptions.MULTIPART_MAX_ENTITY_SIZE, (long) MAX_FILE_SIZE)
+                .setServerOption(UndertowOptions.MAX_ENTITY_SIZE, (long) MAX_FILE_SIZE)
+                .setServerOption(UndertowOptions.MULTIPART_MAX_ENTITY_SIZE, (long) MAX_FILE_SIZE)
                 .build();
         this.server.start();
 

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
-	<Appenders>
-		<Console name="console" target="SYSTEM_OUT">
-			<PatternLayout pattern="%highlight{[%d{HH:mm:ss} %level]: [%logger] %msg%n%xEx{full}}"/>
-		</Console>
-	</Appenders>
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%highlight{[%d{HH:mm:ss} %level]: [%logger] %msg%n%xEx{full}}"/>
+        </Console>
+    </Appenders>
 
-	<Loggers>
-		<Root level="info">
-			<AppenderRef ref="console" />
-		</Root>
-	</Loggers>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="console"/>
+        </Root>
+    </Loggers>
 </Configuration>

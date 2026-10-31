@@ -15,9 +15,9 @@ export type Slot = 'account' | 'admin-overview';
  * loaded.
  */
 export async function loadPluginSections(slot: Slot): Promise<PluginSection[]> {
-	try {
-		return await api<PluginSection[]>(`/api/ui/${slot}`);
-	} catch {
-		return [];
-	}
+    try {
+        return await api<PluginSection[]>(`/api/ui/${slot}`);
+    } catch {
+        return [];
+    }
 }

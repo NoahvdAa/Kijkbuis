@@ -2,106 +2,106 @@
 
 /* Plain and dark like an old TV: black screens, a few teletext colours as accents, monospace for on-screen text. */
 @theme {
-	--color-screen: #000000;
-	--color-panel: #111113;
-	--color-raised: #1b1b1e;
-	--color-line: #2c2c31;
-	--color-fg: #ecebe6;
-	--color-muted: #8e8d87;
-	--color-accent: #f4c430;
-	--color-teletext-red: #e5484d;
-	--color-teletext-green: #30a46c;
-	--color-teletext-yellow: #f4c430;
-	--color-teletext-blue: #3e63dd;
+    --color-screen: #000000;
+    --color-panel: #111113;
+    --color-raised: #1b1b1e;
+    --color-line: #2c2c31;
+    --color-fg: #ecebe6;
+    --color-muted: #8e8d87;
+    --color-accent: #f4c430;
+    --color-teletext-red: #e5484d;
+    --color-teletext-green: #30a46c;
+    --color-teletext-yellow: #f4c430;
+    --color-teletext-blue: #3e63dd;
 
-	--font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-	--font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
-	/* The tuning bar grows from the left, then leaves to the right */
-	--animate-tuning: tuning 1s ease-in-out infinite;
+    /* The tuning bar grows from the left, then leaves to the right */
+    --animate-tuning: tuning 1s ease-in-out infinite;
 
-	@keyframes tuning {
-		0% {
-			clip-path: inset(0 100% 0 0);
-		}
-		50% {
-			clip-path: inset(0);
-		}
-		100% {
-			clip-path: inset(0 0 0 100%);
-		}
-	}
+    @keyframes tuning {
+        0% {
+            clip-path: inset(0 100% 0 0);
+        }
+        50% {
+            clip-path: inset(0);
+        }
+        100% {
+            clip-path: inset(0 0 0 100%);
+        }
+    }
 }
 
 :root {
-	/* The shape of the TV's picture: one 16:9 tile, or a multiview grid of them. Updated by the TV. */
-	--tv-aspect: 1.7778;
+    /* The shape of the TV's picture: one 16:9 tile, or a multiview grid of them. Updated by the TV. */
+    --tv-aspect: 1.7778;
 
-	/* Where the TV sits while a menu is open. It takes the same shape as full screen, within these bounds. */
-	--pip-margin: 1rem;
-	--pip-max-width: min(20rem, 42vw);
-	--pip-max-height: min(14rem, 40dvh);
-	--pip-width: min(var(--pip-max-width), var(--pip-max-height) * var(--tv-aspect));
-	--pip-height: calc(var(--pip-width) / var(--tv-aspect));
-	color-scheme: dark;
+    /* Where the TV sits while a menu is open. It takes the same shape as full screen, within these bounds. */
+    --pip-margin: 1rem;
+    --pip-max-width: min(20rem, 42vw);
+    --pip-max-height: min(14rem, 40dvh);
+    --pip-width: min(var(--pip-max-width), var(--pip-max-height) * var(--tv-aspect));
+    --pip-height: calc(var(--pip-width) / var(--tv-aspect));
+    color-scheme: dark;
 }
 
 * {
-	box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 html,
 body,
 #app {
-	min-height: 100%;
+    min-height: 100%;
 }
 
 body {
-	margin: 0;
-	background: var(--color-panel);
-	color: var(--color-fg);
-	font-family: var(--font-sans);
-	-webkit-font-smoothing: antialiased;
+    margin: 0;
+    background: var(--color-panel);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
 }
 
 /* The TV is one element that moves between these, so playback is never interrupted */
 .tv {
-	container-type: size;
+    container-type: size;
 }
 
 /* The tiles fill the largest box of the TV's shape that fits, whether full screen, in the corner or in between */
 .tv-grid {
-	width: min(100cqw, 100cqh * var(--tv-aspect));
-	height: min(100cqh, 100cqw / var(--tv-aspect));
+    width: min(100cqw, 100cqh * var(--tv-aspect));
+    height: min(100cqh, 100cqw / var(--tv-aspect));
 }
 
 .tv-full {
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
 
 .tv-pip {
-	top: var(--pip-margin);
-	left: var(--pip-margin);
-	width: var(--pip-width);
-	height: var(--pip-height);
+    top: var(--pip-margin);
+    left: var(--pip-margin);
+    width: var(--pip-width);
+    height: var(--pip-height);
 }
 
 /* The guide's sticky channel column, just the logo on phones */
 .guide {
-	--guide-channel-width: 4.5rem;
+    --guide-channel-width: 4.5rem;
 }
 
 @media (width >= 40rem) {
-	.guide {
-		--guide-channel-width: 15rem;
-	}
+    .guide {
+        --guide-channel-width: 15rem;
+    }
 }
 
 /* Menu headers leave room for the TV in the top left */
 .menu-header {
-	padding: var(--pip-margin) var(--pip-margin) var(--pip-margin) calc(var(--pip-width) + 2 * var(--pip-margin));
-	min-height: calc(var(--pip-height) + 2 * var(--pip-margin));
+    padding: var(--pip-margin) var(--pip-margin) var(--pip-margin) calc(var(--pip-width) + 2 * var(--pip-margin));
+    min-height: calc(var(--pip-height) + 2 * var(--pip-margin));
 }

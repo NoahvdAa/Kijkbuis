@@ -12,12 +12,12 @@ import java.util.UUID;
 /**
  * A channel loaded from a playlist.
  *
- * @param id            the channel ID, which stays the same across playlist refreshes
- * @param playlistId    the playlist the channel comes from
- * @param name          the channel name
- * @param groupTitle    the group the playlist puts the channel in
- * @param logoUrl       the URL of the channel logo, which browsers get through {@link #logoPath()}
- * @param streamUrl     the upstream stream URL, which usually contains provider credentials
+ * @param id                 the channel ID, which stays the same across playlist refreshes
+ * @param playlistId         the playlist the channel comes from
+ * @param name               the channel name
+ * @param groupTitle         the group the playlist puts the channel in
+ * @param logoUrl            the URL of the channel logo, which browsers get through {@link #logoPath()}
+ * @param streamUrl          the upstream stream URL, which usually contains provider credentials
  * @param tvgId              the ID the playlist uses to match the channel with EPG data
  * @param epgChannelOverride the EPG channel an admin mapped this channel to, used instead of the tvg-id
  * @param channelNumber      the channel number from the playlist

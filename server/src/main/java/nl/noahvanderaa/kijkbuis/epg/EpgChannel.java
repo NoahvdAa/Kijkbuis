@@ -13,7 +13,8 @@ import org.jetbrains.annotations.Nullable;
  * @param displayName the name of the channel
  * @param iconUrl     the URL of the channel logo
  */
-public record EpgChannel(@NotNull String id, @Nullable String displayName, @Nullable String iconUrl) implements KBSerializable {
+public record EpgChannel(@NotNull String id, @Nullable String displayName,
+                         @Nullable String iconUrl) implements KBSerializable {
 
     @Override
     @NotNull

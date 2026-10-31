@@ -7,8 +7,8 @@ export const TILE_ASPECT = 16 / 9;
  * A multiview grid of screens.
  */
 export type Grid = {
-	columns: number
-	rows: number
+    columns: number
+    rows: number
 };
 
 /** The most screens the TV shows at once, in any layout */
@@ -26,33 +26,33 @@ export const EDGE_MARGIN = 0.025;
  * takes the same share of the TV's height as of its width.
  */
 export type Frame = {
-	x: number
-	y: number
-	/** The share of the TV's width (and height) the screen takes */
-	size: number
+    x: number
+    y: number
+    /** The share of the TV's width (and height) the screen takes */
+    size: number
 };
 
 /**
  * Where a screen is on the TV, as shares of its width and height, from its top left.
  */
 export type Rect = {
-	x: number
-	y: number
-	width: number
-	height: number
+    x: number
+    y: number
+    width: number
+    height: number
 };
 
 /**
  * @return where each screen of a grid goes, from left to right and top to bottom
  */
 export function gridRects(grid: Grid): Rect[] {
-	const rects: Rect[] = [];
-	for (let row = 0; row < grid.rows; row++) {
-		for (let column = 0; column < grid.columns; column++) {
-			rects.push({x: column / grid.columns, y: row / grid.rows, width: 1 / grid.columns, height: 1 / grid.rows});
-		}
-	}
-	return rects;
+    const rects: Rect[] = [];
+    for (let row = 0; row < grid.rows; row++) {
+        for (let column = 0; column < grid.columns; column++) {
+            rects.push({x: column / grid.columns, y: row / grid.rows, width: 1 / grid.columns, height: 1 / grid.rows});
+        }
+    }
+    return rects;
 }
 
 /**
@@ -60,14 +60,14 @@ export function gridRects(grid: Grid): Rect[] {
  * middle of the TV.
  */
 export function gridFrames(grid: Grid): Frame[] {
-	const size = 1 / Math.max(grid.columns, grid.rows);
-	const left = (1 - grid.columns * size) / 2;
-	const top = (1 - grid.rows * size) / 2;
-	return gridRects(grid).map((_, index) => ({
-		x: left + index % grid.columns * size,
-		y: top + Math.floor(index / grid.columns) * size,
-		size,
-	}));
+    const size = 1 / Math.max(grid.columns, grid.rows);
+    const left = (1 - grid.columns * size) / 2;
+    const top = (1 - grid.rows * size) / 2;
+    return gridRects(grid).map((_, index) => ({
+        x: left + index % grid.columns * size,
+        y: top + Math.floor(index / grid.columns) * size,
+        size,
+    }));
 }
 
 /**
@@ -75,11 +75,11 @@ export function gridFrames(grid: Grid): Frame[] {
  * screen's controls.
  */
 export function pictureInPictureFrames(): Frame[] {
-	const size = 0.3;
-	return [
-		{x: 0, y: 0, size: 1},
-		{x: 1 - size - EDGE_MARGIN, y: EDGE_MARGIN * TILE_ASPECT, size},
-	];
+    const size = 0.3;
+    return [
+        {x: 0, y: 0, size: 1},
+        {x: 1 - size - EDGE_MARGIN, y: EDGE_MARGIN * TILE_ASPECT, size},
+    ];
 }
 
 /**
@@ -87,55 +87,55 @@ export function pictureInPictureFrames(): Frame[] {
  * than the screens already there
  */
 export function newFrame(existing: Frame[]): Frame {
-	const size = 1 / 3;
-	const step = 0.05;
-	let frame = {x: 1 - size - EDGE_MARGIN, y: EDGE_MARGIN * TILE_ASPECT, size};
-	while (existing.some((other) => Math.abs(other.x - frame.x) < step / 2 && Math.abs(other.y - frame.y) < step / 2)
-		&& frame.x - step >= 0 && frame.y + size + step <= 1) {
-		frame = {x: frame.x - step, y: frame.y + step, size};
-	}
-	return frame;
+    const size = 1 / 3;
+    const step = 0.05;
+    let frame = {x: 1 - size - EDGE_MARGIN, y: EDGE_MARGIN * TILE_ASPECT, size};
+    while (existing.some((other) => Math.abs(other.x - frame.x) < step / 2 && Math.abs(other.y - frame.y) < step / 2)
+    && frame.x - step >= 0 && frame.y + size + step <= 1) {
+        frame = {x: frame.x - step, y: frame.y + step, size};
+    }
+    return frame;
 }
 
 /**
  * @return the frame made to fit: no smaller than the minimum, and entirely on the TV
  */
 export function clampFrame(frame: Frame): Frame {
-	const size = Math.min(1, Math.max(MIN_FRAME_SIZE, frame.size));
-	return {
-		x: Math.min(1 - size, Math.max(0, frame.x)),
-		y: Math.min(1 - size, Math.max(0, frame.y)),
-		size,
-	};
+    const size = Math.min(1, Math.max(MIN_FRAME_SIZE, frame.size));
+    return {
+        x: Math.min(1 - size, Math.max(0, frame.x)),
+        y: Math.min(1 - size, Math.max(0, frame.y)),
+        size,
+    };
 }
 
 /**
  * @return the largest grid multiview offers: wider on landscape screens, taller on portrait ones
  */
 export function maxGrid(landscape: boolean): Grid {
-	return landscape ? {columns: 3, rows: 2} : {columns: 2, rows: 3};
+    return landscape ? {columns: 3, rows: 2} : {columns: 2, rows: 3};
 }
 
 /**
  * @return whether the window is wider than it's tall, updated when it's resized or the device is rotated
  */
 export function useLandscape(): boolean {
-	const [landscape, setLandscape] = useState(() => window.innerWidth >= window.innerHeight);
+    const [landscape, setLandscape] = useState(() => window.innerWidth >= window.innerHeight);
 
-	useEffect(() => {
-		const onResize = () => setLandscape(window.innerWidth >= window.innerHeight);
-		window.addEventListener('resize', onResize);
-		return () => window.removeEventListener('resize', onResize);
-	}, []);
+    useEffect(() => {
+        const onResize = () => setLandscape(window.innerWidth >= window.innerHeight);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
-	return landscape;
+    return landscape;
 }
 
 /**
  * @return the shape of a grid as a whole, as its width divided by its height
  */
 export function gridAspect(grid: Grid): number {
-	return grid.columns * TILE_ASPECT / grid.rows;
+    return grid.columns * TILE_ASPECT / grid.rows;
 }
 
 /**
@@ -143,10 +143,10 @@ export function gridAspect(grid: Grid): number {
  * sized by.
  */
 export function useTvAspect(aspect: number): void {
-	useEffect(() => {
-		document.documentElement.style.setProperty('--tv-aspect', String(aspect));
-		return () => {
-			document.documentElement.style.removeProperty('--tv-aspect');
-		};
-	}, [aspect]);
+    useEffect(() => {
+        document.documentElement.style.setProperty('--tv-aspect', String(aspect));
+        return () => {
+            document.documentElement.style.removeProperty('--tv-aspect');
+        };
+    }, [aspect]);
 }

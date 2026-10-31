@@ -8,5 +8,6 @@ import org.jetbrains.annotations.Nullable;
  * @param displayName the first display-name
  * @param iconUrl     the first icon
  */
-public record XmltvChannel(@NotNull String id, @Nullable String displayName, @Nullable String iconUrl) implements XmltvEntry {
+public record XmltvChannel(@NotNull String id, @Nullable String displayName,
+                           @Nullable String iconUrl) implements XmltvEntry {
 }

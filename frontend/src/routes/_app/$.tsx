@@ -8,7 +8,7 @@ import {NotFound} from '#/components/NotFound';
 export const Route = createFileRoute('/_app/$')({component: NotFoundPage});
 
 function NotFoundPage() {
-	return <MenuScreen title="Not found">
-		<NotFound/>
-	</MenuScreen>;
+    return <MenuScreen title="Not found">
+        <NotFound/>
+    </MenuScreen>;
 }

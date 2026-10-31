@@ -10,28 +10,28 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SessionManager {
 
-	private final WatchHistoryPlugin plugin;
-	private final Map<UUID, StreamSession> sessions = new ConcurrentHashMap<>();
+    private final WatchHistoryPlugin plugin;
+    private final Map<UUID, StreamSession> sessions = new ConcurrentHashMap<>();
 
-	public SessionManager(@NotNull WatchHistoryPlugin plugin) {
-		this.plugin = plugin;
-	}
+    public SessionManager(@NotNull WatchHistoryPlugin plugin) {
+        this.plugin = plugin;
+    }
 
-	public void startSession(@NotNull Stream stream) {
-		this.sessions.put(stream.id(), new StreamSession(this.plugin, stream));
-	}
+    public void startSession(@NotNull Stream stream) {
+        this.sessions.put(stream.id(), new StreamSession(this.plugin, stream));
+    }
 
-	public void stopSession(@NotNull Stream stream) {
-		StreamSession session = this.sessions.remove(stream.id());
-		if (session != null) {
-			session.cleanup();
-		}
-	}
+    public void stopSession(@NotNull Stream stream) {
+        StreamSession session = this.sessions.remove(stream.id());
+        if (session != null) {
+            session.cleanup();
+        }
+    }
 
-	public void autoSave() {
-		for (StreamSession session : this.sessions.values()) {
-			session.save();
-		}
-	}
+    public void autoSave() {
+        for (StreamSession session : this.sessions.values()) {
+            session.save();
+        }
+    }
 
 }

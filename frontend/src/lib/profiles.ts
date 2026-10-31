@@ -14,25 +14,25 @@ let profiles: Promise<Profile[]> | null = null;
  * @return the qualities, or nothing while they load or if the user may not pick one
  */
 export function useProfiles(enabled: boolean): Profile[] {
-	const [loaded, setLoaded] = useState<Profile[]>([]);
+    const [loaded, setLoaded] = useState<Profile[]>([]);
 
-	useEffect(() => {
-		if (!enabled) {
-			return;
-		}
-		let cancelled = false;
-		profiles ??= api<Profile[]>('/api/profiles').catch(() => {
-			// Try again next time, there's just no choice until then
-			profiles = null;
-			return [];
-		});
-		profiles.then((result) => !cancelled && setLoaded(result));
-		return () => {
-			cancelled = true;
-		};
-	}, [enabled]);
+    useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+        let cancelled = false;
+        profiles ??= api<Profile[]>('/api/profiles').catch(() => {
+            // Try again next time, there's just no choice until then
+            profiles = null;
+            return [];
+        });
+        profiles.then((result) => !cancelled && setLoaded(result));
+        return () => {
+            cancelled = true;
+        };
+    }, [enabled]);
 
-	return enabled ? loaded : [];
+    return enabled ? loaded : [];
 }
 
 /**
@@ -41,15 +41,15 @@ export function useProfiles(enabled: boolean): Profile[] {
  * detail. The size is the size the channel is shown at, so it works for any aspect ratio.
  */
 export function profileSuits(profile: Profile, sourceWidth: number | null, sourceHeight: number | null): boolean {
-	if (sourceWidth === null || sourceHeight === null) {
-		return true;
-	}
-	return sourceWidth >= profile.width || sourceHeight >= profile.height;
+    if (sourceWidth === null || sourceHeight === null) {
+        return true;
+    }
+    return sourceWidth >= profile.width || sourceHeight >= profile.height;
 }
 
 /**
  * @return the bitrate for people, such as 700 kbps or 1.2 Mbps
  */
 export function formatBitrate(kbps: number): string {
-	return kbps < 1000 ? `${kbps} kbps` : `${(kbps / 1000).toLocaleString(undefined, {maximumFractionDigits: 1})} Mbps`;
+    return kbps < 1000 ? `${kbps} kbps` : `${(kbps / 1000).toLocaleString(undefined, {maximumFractionDigits: 1})} Mbps`;
 }

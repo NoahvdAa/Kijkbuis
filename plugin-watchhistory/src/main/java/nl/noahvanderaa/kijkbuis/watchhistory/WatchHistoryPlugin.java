@@ -19,7 +19,7 @@ public class WatchHistoryPlugin implements KijkbuisPlugin {
         context.events().register(new StreamListener(this));
         context.scheduler().runRepeating(Duration.ZERO, Duration.ofMinutes(5), this.sessionManager::autoSave);
 
-		context.ui().registerPage("watch-history", "Watch History", new OverviewPage(this));
+        context.ui().registerPage("watch-history", "Watch History", new OverviewPage(this));
     }
 
     @NotNull

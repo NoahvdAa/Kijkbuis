@@ -258,7 +258,8 @@ final class MockOidcProvider implements AutoCloseable {
     record TestUser(@NotNull String subject, @NotNull String username, @NotNull List<String> groups) {
     }
 
-    private record Authorization(@NotNull String redirectUri, @NotNull String nonce, @NotNull String codeChallenge, @NotNull TestUser user) {
+    private record Authorization(@NotNull String redirectUri, @NotNull String nonce, @NotNull String codeChallenge,
+                                 @NotNull TestUser user) {
     }
 
 }

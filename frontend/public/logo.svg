@@ -1,29 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Kijkbuis">
-	<title>Kijkbuis</title>
-	<!-- On its own dark tile, so it reads on light and dark backgrounds, and as a favicon -->
-	<rect width="128" height="128" rx="28" fill="#111113"/>
+    <title>Kijkbuis</title>
+    <!-- On its own dark tile, so it reads on light and dark backgrounds, and as a favicon -->
+    <rect width="128" height="128" rx="28" fill="#111113"/>
 
-	<!-- Rabbit-ear antenna -->
-	<path d="M64 36 44 15M64 36 84 15" stroke="#ecebe6" stroke-width="4" stroke-linecap="round"/>
-	<circle cx="44" cy="15" r="4" fill="#ecebe6"/>
-	<circle cx="84" cy="15" r="4" fill="#ecebe6"/>
+    <!-- Rabbit-ear antenna -->
+    <path d="M64 36 44 15M64 36 84 15" stroke="#ecebe6" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="44" cy="15" r="4" fill="#ecebe6"/>
+    <circle cx="84" cy="15" r="4" fill="#ecebe6"/>
 
-	<!-- Legs and cabinet -->
-	<path d="M32 104 27 115M96 104 101 115" stroke="#ecebe6" stroke-width="4" stroke-linecap="round"/>
-	<rect x="14" y="36" width="100" height="68" rx="12" fill="#1b1b1e" stroke="#ecebe6" stroke-width="4"/>
+    <!-- Legs and cabinet -->
+    <path d="M32 104 27 115M96 104 101 115" stroke="#ecebe6" stroke-width="4" stroke-linecap="round"/>
+    <rect x="14" y="36" width="100" height="68" rx="12" fill="#1b1b1e" stroke="#ecebe6" stroke-width="4"/>
 
-	<!-- The screen shows a test card in the colours of a remote's teletext keys -->
-	<clipPath id="screen">
-		<rect x="22" y="44" width="64" height="52" rx="10"/>
-	</clipPath>
-	<g clip-path="url(#screen)">
-		<rect x="22" y="44" width="16" height="52" fill="#e5484d"/>
-		<rect x="38" y="44" width="16" height="52" fill="#30a46c"/>
-		<rect x="54" y="44" width="16" height="52" fill="#f4c430"/>
-		<rect x="70" y="44" width="16" height="52" fill="#3e63dd"/>
-	</g>
+    <!-- The screen shows a test card in the colours of a remote's teletext keys -->
+    <clipPath id="screen">
+        <rect x="22" y="44" width="64" height="52" rx="10"/>
+    </clipPath>
+    <g clip-path="url(#screen)">
+        <rect x="22" y="44" width="16" height="52" fill="#e5484d"/>
+        <rect x="38" y="44" width="16" height="52" fill="#30a46c"/>
+        <rect x="54" y="44" width="16" height="52" fill="#f4c430"/>
+        <rect x="70" y="44" width="16" height="52" fill="#3e63dd"/>
+    </g>
 
-	<!-- Knobs -->
-	<circle cx="100" cy="58" r="6" fill="none" stroke="#ecebe6" stroke-width="3.5"/>
-	<circle cx="100" cy="82" r="6" fill="none" stroke="#ecebe6" stroke-width="3.5"/>
+    <!-- Knobs -->
+    <circle cx="100" cy="58" r="6" fill="none" stroke="#ecebe6" stroke-width="3.5"/>
+    <circle cx="100" cy="82" r="6" fill="none" stroke="#ecebe6" stroke-width="3.5"/>
 </svg>

@@ -91,7 +91,8 @@ public class UpstreamClient implements AutoCloseable {
      * @param headers the response headers
      * @param body    the response body, which fails once the deadline passes or it gets too large
      */
-    public record Download(int status, @NotNull HttpHeaders headers, @NotNull InputStream body, @NotNull ScheduledFuture<?> timeout) implements AutoCloseable {
+    public record Download(int status, @NotNull HttpHeaders headers, @NotNull InputStream body,
+                           @NotNull ScheduledFuture<?> timeout) implements AutoCloseable {
 
         @Override
         public void close() throws IOException {

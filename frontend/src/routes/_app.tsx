@@ -8,36 +8,36 @@ import {TvProvider} from '#/lib/tv';
  * playing) while moving between menus. At / it's full screen, on any other page it sits in the top left.
  */
 export const Route = createFileRoute('/_app')({
-	beforeLoad: ({context, location}) => {
-		if (!context.user) {
-			throw redirect({to: '/login', search: {redirect: location.href}});
-		}
-		return {user: context.user};
-	},
-	component: AppLayout,
+    beforeLoad: ({context, location}) => {
+        if (!context.user) {
+            throw redirect({to: '/login', search: {redirect: location.href}});
+        }
+        return {user: context.user};
+    },
+    component: AppLayout,
 });
 
 function AppLayout() {
-	const {user} = Route.useRouteContext();
-	const watching = useLocation({select: (location) => location.pathname === '/'});
-	const navigate = useNavigate();
+    const {user} = Route.useRouteContext();
+    const watching = useLocation({select: (location) => location.pathname === '/'});
+    const navigate = useNavigate();
 
-	// Escape goes back to the TV, like the back button on a remote
-	useEffect(() => {
-		if (watching) {
-			return;
-		}
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && !event.defaultPrevented) {
-				navigate({to: '/'});
-			}
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [watching, navigate]);
+    // Escape goes back to the TV, like the back button on a remote
+    useEffect(() => {
+        if (watching) {
+            return;
+        }
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && !event.defaultPrevented) {
+                navigate({to: '/'});
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [watching, navigate]);
 
-	return <TvProvider>
-		<TvScreen mode={watching ? 'full' : 'pip'} user={user}/>
-		<Outlet/>
-	</TvProvider>;
+    return <TvProvider>
+        <TvScreen mode={watching ? 'full' : 'pip'} user={user}/>
+        <Outlet/>
+    </TvProvider>;
 }

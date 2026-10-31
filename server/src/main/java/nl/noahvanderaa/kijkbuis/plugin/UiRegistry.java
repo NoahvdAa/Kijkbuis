@@ -145,7 +145,8 @@ public class UiRegistry {
      * @param id     the page's ID within the plugin, or within its parent
      * @param title  the name of the page in the menu
      */
-    public record RegisteredPage(@NotNull PluginInfo plugin, @Nullable String parent, @NotNull String id, @NotNull String title,
+    public record RegisteredPage(@NotNull PluginInfo plugin, @Nullable String parent, @NotNull String id,
+                                 @NotNull String title,
                                  @NotNull PageProvider provider) {
     }
 
@@ -155,7 +156,8 @@ public class UiRegistry {
     public record RegisteredForm(@NotNull PluginInfo plugin, @NotNull FormHandler handler) {
     }
 
-    private record RegisteredProvider(@NotNull PluginInfo plugin, @NotNull Slot slot, @NotNull SectionProvider provider) {
+    private record RegisteredProvider(@NotNull PluginInfo plugin, @NotNull Slot slot,
+                                      @NotNull SectionProvider provider) {
     }
 
     private record FormKey(@NotNull String pluginId, @NotNull String action) {

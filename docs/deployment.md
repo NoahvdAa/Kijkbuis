@@ -39,13 +39,13 @@ Or with Compose:
 
 ```yaml
 services:
-	kijkbuis:
-		build: .
-		restart: unless-stopped
-		ports:
-			- "6742:6742"
-		volumes:
-			- ./data:/data
+  kijkbuis:
+    build: .
+    restart: unless-stopped
+    ports:
+        - "6742:6742"
+    volumes:
+        - ./data:/data
 ```
 
 ## Things to know

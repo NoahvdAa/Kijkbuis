@@ -8,20 +8,20 @@ import org.jetbrains.annotations.NotNull;
 
 public class StreamListener implements Listener {
 
-	private final WatchHistoryPlugin plugin;
+    private final WatchHistoryPlugin plugin;
 
-	public StreamListener(@NotNull WatchHistoryPlugin plugin) {
-		this.plugin = plugin;
-	}
+    public StreamListener(@NotNull WatchHistoryPlugin plugin) {
+        this.plugin = plugin;
+    }
 
-	@EventHandler
-	public void onStreamStarted(@NotNull StreamStartedEvent event) {
-		this.plugin.sessionManager().startSession(event.stream());
-	}
+    @EventHandler
+    public void onStreamStarted(@NotNull StreamStartedEvent event) {
+        this.plugin.sessionManager().startSession(event.stream());
+    }
 
-	@EventHandler
-	public void onStreamStopped(@NotNull StreamStoppedEvent event) {
-		this.plugin.sessionManager().stopSession(event.stream());
-	}
+    @EventHandler
+    public void onStreamStopped(@NotNull StreamStoppedEvent event) {
+        this.plugin.sessionManager().stopSession(event.stream());
+    }
 
 }
