@@ -1,4 +1,4 @@
-import Hls from 'hls.js';
+import Hls, {PlaylistLevelType} from 'hls.js';
 import {type ReactNode, useCallback, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from '#/lib/api';
 import type {AudioTrack} from '#/lib/audioTracks';
@@ -9,6 +9,7 @@ import {
     toggleFullscreen,
     useFullscreenElement
 } from '#/lib/media';
+import {AUTO_QUALITY} from '#/lib/profiles';
 import {type Tile, useTv} from '#/lib/tv';
 import type {Channel, Profile} from '#/lib/types';
 import {AudioPicker} from './AudioPicker';
@@ -48,6 +49,8 @@ const MAX_RESTARTS = 3;
 const STALL_DELAY = 500;
 /** How long the info banner stays at most after the channel started, or after it was brought up */
 const BANNER_TIME = 6_000;
+/** How much of each playlist has to be loaded before its bitrate counts, in seconds */
+const MIN_MEASURED_SECONDS = 6;
 
 /**
  * Whether the video is waiting for its first frame, playing, or stuck waiting for more of the stream (e.g. when the
@@ -126,6 +129,15 @@ export function Player({
     useEffect(() => {
         switchAudioTrack(hlsPlayer.current, video.current, audioTrack);
     }, [audioTrack]);
+
+    // What the channel takes at auto quality, measured on the segments loaded at that quality, for the quality picker.
+    // It stays when the quality changes, and starts over for a new channel.
+    const sourceUsage = useRef<SegmentUsage>({});
+    const [sourceBitrateKbps, setSourceBitrateKbps] = useState<number | null>(null);
+    useEffect(() => {
+        sourceUsage.current = {};
+        setSourceBitrateKbps(null);
+    }, [tile.channelId]);
     // For the stats panel, which the d key shows on the selected screen
     const debug = useRef(newPlayerDebug());
     const [statsOpen, setStatsOpen] = useState(false);
@@ -248,6 +260,14 @@ export function Player({
                     seconds: (frag.stats.loading.end - frag.stats.loading.start) / 1000,
                     duration: frag.duration,
                 };
+                if (stream.stream.quality === AUTO_QUALITY && typeof frag.sn === 'number') {
+                    // With a playlist per audio track, the video's segments have no audio
+                    const playlists = stream.stream.audioTracks.length > 0
+                        ? [PlaylistLevelType.MAIN, PlaylistLevelType.AUDIO]
+                        : [PlaylistLevelType.MAIN];
+                    const kbps = addSegment(sourceUsage.current, frag.type, frag.stats.loaded, frag.duration, playlists);
+                    setSourceBitrateKbps((current) => kbps ?? current);
+                }
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 debug.current.errors++;
@@ -406,6 +426,7 @@ export function Player({
                     profiles={profiles}
                     sourceWidth={stream.status === 'playing' ? stream.stream.sourceWidth : null}
                     sourceHeight={stream.status === 'playing' ? stream.stream.sourceHeight : null}
+                    sourceBitrateKbps={sourceBitrateKbps}
                     screen={multiview ? number : null}
                     open={openMenu === 'quality'}
                     onOpenChange={setQualityOpen}
@@ -421,6 +442,31 @@ export function Player({
             </div>
         </div>}
     </div>;
+}
+
+/** How much of each playlist's segments was loaded, by hls.js's name for the playlist */
+type SegmentUsage = Partial<Record<PlaylistLevelType, { bytes: number, seconds: number }>>;
+
+/**
+ * Adds a loaded segment to what a stream took. It averages over every segment, since channels change their bitrate
+ * all the time, such as for a fast scene or the adverts.
+ *
+ * @param playlists the playlists that play at once: the video, and the audio track if it has a playlist of its own
+ * @return how many kilobits per second those playlists take together, or null if they weren't loaded long enough
+ */
+function addSegment(usage: SegmentUsage, playlist: PlaylistLevelType, bytes: number, seconds: number,
+                    playlists: PlaylistLevelType[]): number | null {
+    const loaded = usage[playlist] ?? {bytes: 0, seconds: 0};
+    usage[playlist] = {bytes: loaded.bytes + bytes, seconds: loaded.seconds + seconds};
+    let kbps = 0;
+    for (const type of playlists) {
+        const total = usage[type];
+        if (!total || total.seconds < MIN_MEASURED_SECONDS) {
+            return null;
+        }
+        kbps += total.bytes * 8 / total.seconds / 1000;
+    }
+    return Math.round(kbps);
 }
 
 /**

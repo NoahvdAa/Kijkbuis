@@ -20,6 +20,8 @@ type QualityPickerProps = {
     /** The size the channel is shown at, if known */
     sourceWidth: number | null
     sourceHeight: number | null
+    /** How many kilobits per second the channel takes at auto quality, if it played at that quality long enough to tell */
+    sourceBitrateKbps: number | null
     /** The number of the screen, in multiview */
     screen: number | null
     open: boolean
@@ -36,6 +38,7 @@ export function QualityPicker({
                                   profiles,
                                   sourceWidth,
                                   sourceHeight,
+                                  sourceBitrateKbps,
                                   screen,
                                   open,
                                   onOpenChange,
@@ -58,9 +61,15 @@ export function QualityPicker({
         {
             id: AUTO_QUALITY,
             name: 'Auto',
-            detail: sourceWidth !== null && sourceHeight !== null ? `Source ${sourceWidth}×${sourceHeight}` : 'Source'
+            detail: sourceWidth !== null && sourceHeight !== null ? `Source ${sourceWidth}×${sourceHeight}` : 'Source',
+            bitrate: sourceBitrateKbps
         },
-        ...offered.map((profile) => ({id: profile.id, name: profile.name, detail: formatBitrate(profile.bitrateKbps)})),
+        ...offered.map((profile) => ({
+            id: profile.id,
+            name: profile.name,
+            detail: formatBitrate(profile.bitrateKbps),
+            bitrate: profile.bitrateKbps
+        })),
     ];
     const buttonLabel = `${screen !== null ? `Screen ${screen} quality` : 'Quality'}: ${label}`;
 
@@ -93,8 +102,25 @@ export function QualityPicker({
                 className={`${pickerOptionClassName} ${option.id === quality ? 'text-accent' : ''}`}
             >
                 {option.name}
-                <span className="normal-case tracking-normal text-muted">{option.detail}</span>
+                <span className="normal-case tracking-normal text-muted text-right">
+                    {option.detail}
+                    {option.bitrate !== null ? <>
+                        <br/>
+                        <small>
+                            {/* Auto is what the channel took so far, the others are capped at their bitrate */}
+                            ({option.id === AUTO_QUALITY ? `~${formatBitrate(option.bitrate)}=~` : 'max ~'}
+                            {hourlyUsage(option.bitrate).toLocaleString(undefined, {maximumFractionDigits: 1})} GB/h)
+                        </small>
+                    </> : null}
+                </span>
             </button>)}
         </div>}
     </div>;
+}
+
+/**
+ * @return how many gigabytes an hour at the bitrate takes
+ */
+function hourlyUsage(kbps: number): number {
+    return kbps * 1000 / 8 * 3600 / 1e9;
 }

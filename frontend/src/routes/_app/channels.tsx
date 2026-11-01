@@ -122,7 +122,7 @@ function ChannelRow({channel, now, screenLabel, onWatch}: ChannelRowProps) {
             {channel.now
                 ? <>
                     <p className="truncate text-sm text-muted">
-                        <span className="font-mono tabular-nums">{formatTime(channel.now.startsAt)}</span>
+                        <span className="font-mono tabular-nums">{formatTime(channel.now.startsAt)}</span>{' '}
                         <ProgrammeTitle programme={channel.now}/>
                     </p>
                     <div className="h-0.5 bg-line" aria-hidden="true">
@@ -134,7 +134,7 @@ function ChannelRow({channel, now, screenLabel, onWatch}: ChannelRowProps) {
         </div>
 
         <p className="hidden truncate text-sm text-muted sm:block">
-            {channel.next && <><span className="font-mono tabular-nums">{formatTime(channel.next.startsAt)}</span>
+            {channel.next && <><span className="font-mono tabular-nums">{formatTime(channel.next.startsAt)}</span>{' '}
                 <ProgrammeTitle programme={channel.next}/></>}
         </p>
     </button>;
