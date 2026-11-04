@@ -25,6 +25,8 @@ export type Tile = {
     volume: number
     /** {@link AUTO_QUALITY} or the ID of a transcoding profile. It stays when the screen changes channels. */
     quality: string
+    /** Whether the screen shows the channel's captions, if it has any. It stays when the screen changes channels. */
+    captions: boolean
 };
 
 /**
@@ -85,6 +87,7 @@ type TvState = {
     setMuted: (tileId: string, muted: boolean) => void
     setVolume: (tileId: string, volume: number) => void
     setQuality: (tileId: string, quality: string) => void
+    setCaptions: (tileId: string, captions: boolean) => void
 };
 
 const TvContext = createContext<TvState | null>(null);
@@ -96,7 +99,7 @@ let lastTileId = 0;
 
 function newTile(): Tile {
     // Not crypto.randomUUID(), which only exists on HTTPS and localhost
-    return {id: String(++lastTileId), channelId: null, muted: false, volume: 1, quality: AUTO_QUALITY};
+    return {id: String(++lastTileId), channelId: null, muted: false, volume: 1, quality: AUTO_QUALITY, captions: false};
 }
 
 type Screens = {
@@ -254,6 +257,10 @@ export function TvProvider({children}: { children: ReactNode }) {
         (tile) => tile.id === tileId ? {...tile, quality} : tile
     )), [updateTiles]);
 
+    const setCaptions = useCallback((tileId: string, captions: boolean) => updateTiles((tiles) => tiles.map(
+        (tile) => tile.id === tileId ? {...tile, captions} : tile
+    )), [updateTiles]);
+
     const state = useMemo(() => ({
         ...screens,
         aspect: screens.layout.kind === 'grid' ? gridAspect(screens.layout.grid) : TILE_ASPECT,
@@ -272,8 +279,9 @@ export function TvProvider({children}: { children: ReactNode }) {
         setMuted,
         setVolume,
         setQuality,
+        setCaptions,
     }), [screens, landscape, savedLayout, setGrid, setFrames, setFrame, setLayer, addScreen, removeScreen, saveLayout, setActiveTile, watch, stop, setMuted,
-        setVolume, setQuality]);
+        setVolume, setQuality, setCaptions]);
     return <TvContext value={state}>{children}</TvContext>;
 }
 

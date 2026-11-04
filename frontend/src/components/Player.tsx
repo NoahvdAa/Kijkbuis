@@ -13,7 +13,16 @@ import {AUTO_QUALITY} from '#/lib/profiles';
 import {type Tile, useTv} from '#/lib/tv';
 import type {Channel, Profile} from '#/lib/types';
 import {AudioPicker} from './AudioPicker';
-import {ExitFullscreenIcon, FullscreenIcon, SpeakerIcon, SpeakerMutedIcon, StopIcon} from './Icons';
+import {CaptionsPicker} from './CaptionsPicker';
+import {
+    CaptionsIcon,
+    CaptionsOffIcon,
+    ExitFullscreenIcon,
+    FullscreenIcon,
+    SpeakerIcon,
+    SpeakerMutedIcon,
+    StopIcon
+} from './Icons';
 import {InfoBanner} from './InfoBanner';
 import {newPlayerDebug, PlayerStats, resetPlayerDebug} from './PlayerStats';
 import {QualityPicker} from './QualityPicker';
@@ -51,6 +60,8 @@ const STALL_DELAY = 500;
 const BANNER_TIME = 6_000;
 /** How much of each playlist has to be loaded before its bitrate counts, in seconds */
 const MIN_MEASURED_SECONDS = 6;
+/** How long captions stay in their track after they showed, in seconds, since a stream can play for days */
+const CAPTIONS_KEPT = 60;
 
 /**
  * Whether the video is waiting for its first frame, playing, or stuck waiting for more of the stream (e.g. when the
@@ -99,7 +110,7 @@ export function Player({
                            onSelect,
                            onWake
                        }: PlayerProps) {
-    const {stop, setMuted, setVolume, setQuality} = useTv();
+    const {stop, setMuted, setVolume, setQuality, setCaptions} = useTv();
     const container = useRef<HTMLDivElement>(null);
     const video = useRef<HTMLVideoElement>(null);
     const channel = useChannel(tile.channelId);
@@ -109,6 +120,7 @@ export function Player({
     const fullscreen = useFullscreenElement() === container.current && container.current !== null;
     const setQualityOpen = useCallback((open: boolean) => onMenuOpenChange('quality', open), [onMenuOpenChange]);
     const setAudioOpen = useCallback((open: boolean) => onMenuOpenChange('audio', open), [onMenuOpenChange]);
+    const setCaptionsOpen = useCallback((open: boolean) => onMenuOpenChange('captions', open), [onMenuOpenChange]);
 
     // Which audio track plays, for channels with several. It stays when the quality changes, which starts a new
     // stream of the same channel, and goes back to the first for a new channel.
@@ -129,6 +141,55 @@ export function Player({
     useEffect(() => {
         switchAudioTrack(hlsPlayer.current, video.current, audioTrack);
     }, [audioTrack]);
+
+    // The channel's sets of captions, lowest number first. They're inside the video, so there's no telling until the
+    // player finds text in there, which can take a while on channels that only have it for some programmes. They stay
+    // when the quality changes, which starts a new stream of the same channel, and start over for a new channel.
+    const [captionSets, setCaptionSets] = useState<string[]>([]);
+    const hasCaptions = captionSets.length > 0;
+    // The set the viewer picked. It goes back to the first for a new channel, whose other sets can be anything.
+    const [pickedCaptionSet, setPickedCaptionSet] = useState<string | null>(null);
+    // Which set shows. Without a pick it's the lowest, not the one that happens to have text first, which can be another
+    // one for every stream.
+    const shownCaptionSet = tile.captions ? pickedCaptionSet ?? captionSets[0] ?? null : null;
+    // The tracks hls.js's captions go in, by set. A video can't get rid of a track, so every stream uses the same ones.
+    const captionsTracks = useRef(new Map<string, TextTrack>());
+    useEffect(() => {
+        setCaptionSets([]);
+        setPickedCaptionSet(null);
+    }, [tile.channelId]);
+    useEffect(() => {
+        const tracks = video.current?.textTracks;
+        if (!tracks) {
+            return;
+        }
+        const update = () => {
+            const captions = Array.from(tracks).filter((track) => track.kind === 'captions');
+            for (const track of captions) {
+                track.mode = track.label === shownCaptionSet ? 'showing' : 'hidden';
+            }
+            const found = captions.filter((track) => track.cues?.length).map((track) => track.label);
+            setCaptionSets((known) => {
+                const sets = [...new Set([...known, ...found])].sort();
+                return sets.length === known.length ? known : sets;
+            });
+        };
+        const listen = () => {
+            // Adding the same listener again does nothing
+            for (const track of tracks) {
+                track.addEventListener('cuechange', update);
+            }
+            update();
+        };
+        listen();
+        tracks.addEventListener('addtrack', listen);
+        return () => {
+            tracks.removeEventListener('addtrack', listen);
+            for (const track of tracks) {
+                track.removeEventListener('cuechange', update);
+            }
+        };
+    }, [shownCaptionSet]);
 
     // What the channel takes at auto quality, measured on the segments loaded at that quality, for the quality picker.
     // It stays when the quality changes, and starts over for a new channel.
@@ -177,6 +238,12 @@ export function Player({
                 setStatsOpen((open) => !open);
                 return;
             }
+            if (event.key === 'c') {
+                if (hasCaptions) {
+                    setCaptions(tile.id, !tile.captions);
+                }
+                return;
+            }
             if (event.key !== 'i') {
                 return;
             }
@@ -189,7 +256,7 @@ export function Player({
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [pip, active, tile.channelId, bannerShownAt, onWake]);
+    }, [pip, active, tile.id, tile.channelId, tile.captions, hasCaptions, bannerShownAt, setCaptions, onWake]);
 
     // The latest audio settings, for starting playback without restarting it whenever they change
     const audio = useRef(tile);
@@ -245,7 +312,9 @@ export function Player({
         // Switches to the audio track the viewer picked once the stream's tracks are known
         const onAudioTracks = () => switchAudioTrack(hls, element, audioTrackRef.current);
         if (Hls.isSupported()) {
-            hls = new Hls({backBufferLength: 30, maxBufferLength: 20});
+            // hls.js only adds captions to tracks of its own when it appends video on its own, which never happens for
+            // streams with their audio in the same segments. So it hands them over, and they go in a track from here.
+            hls = new Hls({backBufferLength: 30, maxBufferLength: 20, renderTextTracksNatively: false});
             debug.current.hls = hls;
             hls.on(Hls.Events.MANIFEST_PARSED, play);
             hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, onAudioTracks);
@@ -268,6 +337,19 @@ export function Player({
                     const kbps = addSegment(sourceUsage.current, frag.type, frag.stats.loaded, frag.duration, playlists);
                     setSourceBitrateKbps((current) => kbps ?? current);
                 }
+            });
+            hls.on(Hls.Events.CUES_PARSED, (_event, {type, cues, track}) => {
+                if (type !== 'captions') {
+                    return;
+                }
+                // hls.js calls the sets of captions textTrack1 to textTrack4
+                const set = track.replace('textTrack', 'CC');
+                let captions = captionsTracks.current.get(set);
+                if (!captions) {
+                    captions = element.addTextTrack('captions', set);
+                    captionsTracks.current.set(set, captions);
+                }
+                addCaptions(captions, cues, element.currentTime);
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 debug.current.errors++;
@@ -301,6 +383,7 @@ export function Player({
             hls?.destroy();
             hlsPlayer.current = null;
             debug.current.hls = null;
+            captionsTracks.current.forEach(clearCaptions);
             element.removeEventListener('error', lost);
             element.removeEventListener('loadedmetadata', onAudioTracks);
             element.removeAttribute('src');
@@ -412,6 +495,28 @@ export function Player({
                         <span className="normal-case tracking-normal text-muted"> · {channel.now.title}</span>}
                 </button>
 
+                {captionSets.length === 1 && <ControlButton
+                    label="Captions (c)"
+                    pressed={tile.captions}
+                    onClick={() => setCaptions(tile.id, !tile.captions)}
+                >
+                    {tile.captions ? <CaptionsIcon/> : <CaptionsOffIcon/>}
+                </ControlButton>}
+
+                {captionSets.length > 1 && <CaptionsPicker
+                    sets={captionSets}
+                    selected={shownCaptionSet}
+                    screen={multiview ? number : null}
+                    open={openMenu === 'captions'}
+                    onOpenChange={setCaptionsOpen}
+                    onPick={(set) => {
+                        if (set !== null) {
+                            setPickedCaptionSet(set);
+                        }
+                        setCaptions(tile.id, set !== null);
+                    }}
+                />}
+
                 {stream.status === 'playing' && stream.stream.audioTracks.length > 1 && <AudioPicker
                     tracks={stream.stream.audioTracks}
                     selected={audioTrack}
@@ -467,6 +572,37 @@ function addSegment(usage: SegmentUsage, playlist: PlaylistLevelType, bytes: num
         kbps += total.bytes * 8 / total.seconds / 1000;
     }
     return Math.round(kbps);
+}
+
+/**
+ * Adds captions to a track, and removes the ones that showed a while ago.
+ */
+function addCaptions(track: TextTrack, cues: VTTCue[], currentTime: number) {
+    for (const cue of cues) {
+        // hls.js counts the rows of the picture from 1, but lines count from 0, which would put the last row below it
+        if (typeof cue.line === 'number') {
+            cue.line--;
+        }
+        track.addCue(cue);
+    }
+    for (const cue of Array.from(track.cues ?? [])) {
+        if (cue.endTime < currentTime - CAPTIONS_KEPT) {
+            track.removeCue(cue);
+        }
+    }
+}
+
+/**
+ * Removes the captions of a stream that stopped.
+ */
+function clearCaptions(track: TextTrack) {
+    // Browsers keep showing captions that are on screen when they're removed from a track that's showing
+    const mode = track.mode;
+    track.mode = 'hidden';
+    for (const cue of Array.from(track.cues ?? [])) {
+        track.removeCue(cue);
+    }
+    track.mode = mode;
 }
 
 /**

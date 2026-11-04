@@ -64,6 +64,15 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Captions are made for a grid of characters, and that suits the TV. They have 15 rows, which only just don't fit at the
+ * size browsers give them. Browsers move a row that doesn't fit to a free line, which is above the row it should be under.
+ */
+video::cue {
+    font-family: var(--font-mono);
+    font-size: 90%;
+}
+
 /* The TV is one element that moves between these, so playback is never interrupted */
 .tv {
     container-type: size;

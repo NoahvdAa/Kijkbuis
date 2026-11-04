@@ -33,6 +33,20 @@ export function SpeakerMutedIcon() {
     </Icon>;
 }
 
+export function CaptionsIcon() {
+    return <Icon>
+        <rect x="3" y="6" width="18" height="12" fill="currentColor"/>
+        <path d="M10.5 10h-3v4h3M16.5 10h-3v4h3" stroke="var(--color-screen)"/>
+    </Icon>;
+}
+
+export function CaptionsOffIcon() {
+    return <Icon>
+        <rect x="3" y="6" width="18" height="12"/>
+        <path d="M10.5 10h-3v4h3M16.5 10h-3v4h3"/>
+    </Icon>;
+}
+
 export function FullscreenIcon() {
     return <Icon>
         <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>

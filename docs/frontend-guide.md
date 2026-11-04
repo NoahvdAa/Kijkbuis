@@ -161,6 +161,48 @@ plays HLS itself. hls.js only knows the tracks once it has loaded the playlist (
 The first track plays unless another is picked. A new stream of the same channel, such as for another quality, starts
 with the first track too, so switch it again if the viewer picked another.
 
+### Showing captions
+
+Some channels have CEA-608 captions (closed captions) inside their video. They come along in the video when it's passed
+through or transcoded, so there's nothing about them in the API: not even ffmpeg lists them until it decodes some. Only
+the player can tell, once it finds text in there. It can take a while, on channels that only have captions for some
+programmes.
+
+hls.js reads them, but only adds them to a text track of its own after appending video on its own, which never happens
+for streams with their audio in the same segments. Have it hand them over instead, and put them in your own track:
+
+```js
+const hls = new Hls({ renderTextTracksNatively: false });
+const sets = new Map();
+hls.on(Hls.Events.CUES_PARSED, (event, { type, cues, track }) => {
+    if (type !== 'captions') {
+        return;
+    }
+    // hls.js calls the sets of captions textTrack1 to textTrack4
+    if (!sets.has(track)) {
+        sets.set(track, video.addTextTrack('captions', track.replace('textTrack', 'CC')));
+    }
+    for (const cue of cues) {
+        // hls.js counts the rows of the picture from 1, but lines count from 0
+        cue.line--;
+        sets.get(track).addCue(cue);
+    }
+});
+```
+
+- Set `track.mode` to `showing` or `hidden` to turn them on or off. A hidden track still gets its cues, and fires
+  `cuechange`, so that's a good moment to offer a captions button.
+- A video can have up to four sets of captions, CC1 to CC4, such as a second language. hls.js only knows their numbers,
+  so that's all there is to call them. Show the lowest one unless the viewer picks another: which set has text first
+  depends on when the stream starts, so going by that shows another set after every new stream.
+- Browsers fit fewer than 15 rows at the size they give captions by default, and move a row that doesn't fit to a free
+  line, which is above the row it should be under. A slightly smaller `video::cue { font-size: 90%; }` avoids that.
+- Hide the track before removing cues, for example when the stream stops. Browsers keep showing captions that are on
+  screen when they're removed from a track that's showing.
+- A stream can play for days, so remove cues that showed a while ago.
+
+Teletext, DVB and WebVTT subtitles aren't supported yet.
+
 ### Multiview
 
 Each tile is simply its own stream: start, play and stop them independently, and mute all but one. For small tiles,

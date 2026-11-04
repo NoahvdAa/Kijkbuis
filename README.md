@@ -8,6 +8,7 @@ A modern, web-based IPTV viewer for every device.
 - Multi-viewer, in a grid or with screens wherever you want them, such as picture in picture
 - Automatic transcoding of unsupported codecs
 - Quality selection per stream
+- Closed captions on channels that have them
 - Optional TV-guide support
 
 ## Deployment
