@@ -34,7 +34,7 @@ export function EpgChannelPicker({channel, epgChannels, onClose}: EpgChannelPick
     const matches = useMemo(() => {
         const query = search.trim().toLowerCase();
         const found = query
-            ? epgChannels.filter((epgChannel) => epgChannel.displayName.toLowerCase().includes(query) || epgChannel.id.toLowerCase().includes(query))
+            ? epgChannels.filter((epgChannel) => epgChannel.displayName?.toLowerCase().includes(query) || epgChannel.id.toLowerCase().includes(query))
             : epgChannels;
         return found.slice(0, MAX_RESULTS);
     }, [epgChannels, search]);
@@ -88,7 +88,7 @@ export function EpgChannelPicker({channel, epgChannels, onClose}: EpgChannelPick
                         onClick={() => pick(epgChannel.id)}
                         className={`${optionClassName} ${epgChannel.id === channel.epgChannelId ? 'text-accent' : ''}`}
                     >
-                        <span className="min-w-0 flex-1 truncate">{epgChannel.displayName}</span>
+                        <span className="min-w-0 flex-1 truncate">{epgChannel.displayName ?? epgChannel.id}</span>
                         <span className="max-w-[45%] truncate font-mono text-xs text-muted">{epgChannel.id}</span>
                     </button>
                 </li>)}

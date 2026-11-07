@@ -12,6 +12,13 @@ export class ApiError extends Error {
 
 }
 
+/**
+ * @return a message for people about what went wrong
+ */
+export function errorMessage(error: unknown): string {
+    return error instanceof ApiError ? error.message : 'Kijkbuis can\'t be reached right now.';
+}
+
 type ApiOptions = Omit<RequestInit, 'body'> & {
     /** Sent as the JSON request body */
     json?: unknown

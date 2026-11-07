@@ -1,8 +1,6 @@
 import {api, ApiError} from './api';
 import type {Privilege} from './types';
 
-export type {Privilege};
-
 export type User = {
     id: string
     username: string

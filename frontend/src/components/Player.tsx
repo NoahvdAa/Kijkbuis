@@ -1,7 +1,7 @@
 import Hls, {PlaylistLevelType} from 'hls.js';
 import {type ReactNode, useCallback, useEffect, useRef, useState} from 'react';
 import {api, ApiError} from '#/lib/api';
-import type {AudioTrack} from '#/lib/audioTracks';
+import {useChannel} from '#/lib/channels';
 import {
     canFullscreenVideo,
     playableVideoCodecs,
@@ -11,7 +11,7 @@ import {
 } from '#/lib/media';
 import {AUTO_QUALITY} from '#/lib/profiles';
 import {type Tile, useTv} from '#/lib/tv';
-import type {Channel, Profile} from '#/lib/types';
+import type {Channel, Profile, StreamInfo} from '#/lib/types';
 import {AudioPicker} from './AudioPicker';
 import {CaptionsPicker} from './CaptionsPicker';
 import {
@@ -26,25 +26,6 @@ import {
 import {InfoBanner} from './InfoBanner';
 import {newPlayerDebug, PlayerStats, resetPlayerDebug} from './PlayerStats';
 import {QualityPicker} from './QualityPicker';
-
-/** What the backend responds with when starting a stream */
-export type StreamInfo = {
-    id: string
-    playlistUrl: string
-    /** auto or a profile ID */
-    quality: string
-    transcoding: boolean
-    sourceVideoCodec: string | null
-    sourceInterlaced: boolean
-    /** The size the channel is shown at, if known */
-    sourceWidth: number | null
-    sourceHeight: number | null
-    /**
-     * The audio tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
-     * only one (or none).
-     */
-    audioTracks: AudioTrack[]
-};
 
 type StreamState =
     | { status: 'off' }
@@ -83,7 +64,7 @@ type PlayerProps = {
     active: boolean
     /** The qualities the user can pick from, none if they may not */
     profiles: Profile[]
-    /** Which of the screen's menus is open, if any: quality or audio */
+    /** Which of the screen's menus is open, if any: quality, audio or captions */
     openMenu: string | null
     onMenuOpenChange: (menu: string, open: boolean) => void
     /** Selects this screen, in multiview */
@@ -225,7 +206,8 @@ export function Player({
     }, [showControls]);
     const showBanner = bannerShownAt !== null && showControls && !pip && (stream.status === 'tuning' || stream.status === 'playing');
 
-    // The i key brings up the banner of the screen the keyboard controls, or hides it again
+    // Keys for the screen the keyboard controls: i brings up its banner or hides it again, c turns its captions on or off,
+    // and d shows its stats
     useEffect(() => {
         if (pip || !active || !tile.channelId) {
             return;
@@ -789,39 +771,4 @@ function stopStream(id: string, keepalive: boolean = false) {
     fetch(`/api/streams/${id}`, {method: 'DELETE', keepalive}).catch(() => {
         // The backend stops streams nobody watches anyway
     });
-}
-
-/**
- * Loads a channel's details, and loads them again when the programme changes.
- */
-export function useChannel(channelId: string | null): Channel | null {
-    const [channel, setChannel] = useState<Channel | null>(null);
-    const [refresh, setRefresh] = useState(0);
-
-    useEffect(() => {
-        if (!channelId) {
-            setChannel(null);
-            return;
-        }
-        let cancelled = false;
-        api<Channel>(`/api/channels/${channelId}`)
-            .then((loaded) => !cancelled && setChannel(loaded))
-            .catch(() => {
-                // The screen just doesn't show the channel's name
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [channelId, refresh]);
-
-    useEffect(() => {
-        // Reload when the programme ends, or when the next one starts if nothing is on, or every few minutes if neither is
-        // known
-        const changesAt = channel?.now?.endsAt ?? channel?.next?.startsAt;
-        const until = changesAt ? Date.parse(changesAt) - Date.now() + 5_000 : 5 * 60_000;
-        const timeout = window.setTimeout(() => setRefresh((current) => current + 1), Math.max(until, 5_000));
-        return () => window.clearTimeout(timeout);
-    }, [channel]);
-
-    return channel?.id === channelId ? channel : null;
 }

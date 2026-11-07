@@ -1,3 +1,5 @@
+import type {AudioTrack} from './audioTracks';
+
 /**
  * The shapes of what the backend sends, see docs/frontend-guide.md.
  */
@@ -81,11 +83,31 @@ export type AdminChannel = Channel & {
 /** A channel in a playlist's EPG */
 export type EpgChannel = {
     id: string
-    displayName: string
+    /** Null if the EPG doesn't name the channel */
+    displayName: string | null
     iconUrl: string | null
 };
 
 export type Privilege = 'admin' | 'transcode';
+
+/** What the backend responds with when starting a stream */
+export type StreamInfo = {
+    id: string
+    playlistUrl: string
+    /** auto or a profile ID */
+    quality: string
+    transcoding: boolean
+    sourceVideoCodec: string | null
+    sourceInterlaced: boolean
+    /** The size the channel is shown at, if known */
+    sourceWidth: number | null
+    sourceHeight: number | null
+    /**
+     * The audio tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
+     * only one (or none).
+     */
+    audioTracks: AudioTrack[]
+};
 
 /** Someone watching a channel, as admins see it */
 export type ActiveStream = {

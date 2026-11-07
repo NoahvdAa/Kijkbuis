@@ -1,6 +1,6 @@
 import {useRouter} from '@tanstack/react-router';
 import {useCallback, useEffect, useState} from 'react';
-import {ApiError} from './api';
+import {errorMessage} from './api';
 import type {Playlist} from './types';
 
 /**
@@ -16,13 +16,6 @@ export function formatBytes(bytes: number): string {
     }
     const digits = unit > 0 && value < 10 ? 1 : 0;
     return `${value.toLocaleString(undefined, {maximumFractionDigits: digits, minimumFractionDigits: digits})} ${units[unit]}`;
-}
-
-/**
- * @return a message for people about what went wrong
- */
-export function errorMessage(error: unknown): string {
-    return error instanceof ApiError ? error.message : 'Kijkbuis can\'t be reached right now.';
 }
 
 type Action<A extends unknown[]> = {

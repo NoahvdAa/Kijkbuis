@@ -13,9 +13,11 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +43,15 @@ class UpstreamClientTest {
         try (UpstreamClient.Download download = this.client.download(this.url(), Map.of(), Duration.ofSeconds(5), 1024)) {
             assertEquals(200, download.status());
             assertEquals("hello", new String(download.body().readAllBytes(), StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void failsOnUrlsItCantUse() {
+        // A playlist's header can name any EPG URL, which can contain provider credentials
+        for (String url : List.of("epg.xml", "ftp://user:secret@epg.example/epg.xml", "http://user:secret@epg.example/not a path")) {
+            IOException ex = assertThrows(IOException.class, () -> this.client.download(url, Map.of(), Duration.ofSeconds(5), 1024));
+            assertFalse(ex.getMessage().contains("secret"));
         }
     }
 

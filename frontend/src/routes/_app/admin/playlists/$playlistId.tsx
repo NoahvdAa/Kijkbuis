@@ -1,7 +1,7 @@
 import {createFileRoute, Link, useNavigate} from '@tanstack/react-router';
 import {type ReactNode, useCallback, useMemo, useState} from 'react';
-import {api} from '#/lib/api';
-import {errorMessage, playlistStatus, useAction, useReloadEvery} from '#/lib/admin';
+import {api, errorMessage} from '#/lib/api';
+import {playlistStatus, useAction, useReloadEvery} from '#/lib/admin';
 import {formatAgo, formatDateTime, useNow} from '#/lib/time';
 import type {AdminChannel, EpgChannel, Playlist} from '#/lib/types';
 import {AdminSection, ConfirmButton, ErrorText, StatusLight} from '#/components/admin/AdminParts';
@@ -110,7 +110,7 @@ function ChannelGuideData({channels, epgChannels}: { channels: AdminChannel[], e
     const [onlyMissing, setOnlyMissing] = useState(false);
     const [picking, setPicking] = useState<AdminChannel | null>(null);
 
-    const epgNames = useMemo(() => new Map(epgChannels.map((epgChannel) => [epgChannel.id, epgChannel.displayName])), [epgChannels]);
+    const epgNames = useMemo(() => new Map(epgChannels.map((epgChannel) => [epgChannel.id, epgChannel.displayName ?? epgChannel.id])), [epgChannels]);
     const hasGuideData = useCallback((channel: AdminChannel) => channel.epgChannelId !== null && epgNames.has(channel.epgChannelId), [epgNames]);
     const withGuideData = channels.filter(hasGuideData).length;
 

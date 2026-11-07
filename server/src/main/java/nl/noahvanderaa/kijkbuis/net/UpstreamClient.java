@@ -46,8 +46,14 @@ public class UpstreamClient implements AutoCloseable {
     @NotNull
     public Download download(@NotNull String url, @NotNull Map<String, String> headers, @NotNull Duration deadline, long maxBytes) throws IOException {
         Instant expiresAt = Instant.now().plus(deadline);
-        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
-                .timeout(deadline)
+        HttpRequest.Builder request;
+        try {
+            request = HttpRequest.newBuilder(URI.create(url));
+        } catch (IllegalArgumentException ex) {
+            // Not the exception's message, which has the URL in it, and URLs can contain provider credentials
+            throw new IOException("The URL can't be used, it must be a valid http:// or https:// URL");
+        }
+        request.timeout(deadline)
                 .header("User-Agent", "Kijkbuis")
                 .GET();
         headers.forEach(request::header);

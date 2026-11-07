@@ -7,7 +7,6 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
-    "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -23,7 +22,6 @@
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "0.8.5",
-    "@tanstack/router-cli": "^1.132.0",
     "@tanstack/router-plugin": "1.168.48",
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
@@ -31,11 +29,5 @@
     "@vitejs/plugin-react": "^6.0.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss"
-    ]
   }
 }

@@ -1,6 +1,5 @@
 import {type ErrorComponentProps, useRouter} from '@tanstack/react-router';
-import {api} from '#/lib/api';
-import {errorMessage} from '#/lib/admin';
+import {api, errorMessage} from '#/lib/api';
 import {PLUGIN_HEADERS} from '#/lib/plugins';
 import type {PluginPage} from '#/lib/types';
 import {ErrorText} from './admin/AdminParts';

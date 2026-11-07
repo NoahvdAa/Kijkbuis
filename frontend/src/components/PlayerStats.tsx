@@ -1,8 +1,7 @@
 import Hls from 'hls.js';
 import {type ReactNode, type RefObject, useEffect, useRef, useState} from 'react';
 import {codecName} from '#/lib/media';
-import type {Channel} from '#/lib/types';
-import type {StreamInfo} from './Player';
+import type {Channel, StreamInfo} from '#/lib/types';
 
 /**
  * What a player keeps track of for the stats panel, besides what hls.js and the video element know themselves.

@@ -50,7 +50,7 @@ class M3UParserTest {
 
     @Test
     void skipsJunkAndHandlesBomAndCrlf() throws IOException {
-        M3UPlaylist playlist = parse("﻿#EXTM3U x-tvg-url=\"http://epg.example/x.xml\"\r\n"
+        M3UPlaylist playlist = parse("\uFEFF#EXTM3U x-tvg-url=\"http://epg.example/x.xml\"\r\n"
                 + "#EXTINF:-1,One\r\n"
                 + "http://streams.example/one\r\n"
                 + "<html><body>Error</body></html>\r\n"

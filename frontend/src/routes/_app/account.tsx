@@ -1,6 +1,6 @@
 import {createFileRoute, useNavigate} from '@tanstack/react-router';
 import {useState} from 'react';
-import {ApiError} from '#/lib/api';
+import {errorMessage} from '#/lib/api';
 import {logout} from '#/lib/auth';
 import {loadPluginSections} from '#/lib/plugins';
 import {MenuScreen} from '#/components/MenuScreen';
@@ -27,7 +27,7 @@ function AccountPage() {
             await logout();
             await navigate({to: '/login'});
         } catch (e) {
-            setError(e instanceof ApiError ? e.message : 'Kijkbuis can\'t be reached right now.');
+            setError(errorMessage(e));
             setLoggingOut(false);
         }
     }

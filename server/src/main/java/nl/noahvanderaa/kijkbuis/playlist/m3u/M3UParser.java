@@ -41,7 +41,7 @@ public final class M3UParser {
         String line;
         boolean firstLine = true;
         while ((line = reader.readLine()) != null) {
-            if (firstLine && line.startsWith("﻿")) {
+            if (firstLine && line.startsWith("\uFEFF")) {
                 line = line.substring(1);
             }
             firstLine = false;

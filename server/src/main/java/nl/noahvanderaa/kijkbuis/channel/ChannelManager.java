@@ -63,13 +63,7 @@ public class ChannelManager {
     @Nullable
     public Channel findVisibleTo(@NotNull User user, @NotNull UUID id) throws SQLException {
         // Every user can see every playlist for now, this is where group-based visibility goes
-        try (Connection connection = this.database.connection();
-             PreparedStatement statement = connection.prepareStatement(SELECT_CHANNELS + "WHERE c.id = ?")) {
-            statement.setString(1, id.toString());
-            try (ResultSet resultSet = statement.executeQuery()) {
-                return resultSet.next() ? readChannel(resultSet) : null;
-            }
-        }
+        return this.find(id);
     }
 
     /**
@@ -88,14 +82,7 @@ public class ChannelManager {
                 return null;
             }
         }
-
-        try (Connection connection = this.database.connection();
-             PreparedStatement statement = connection.prepareStatement(SELECT_CHANNELS + "WHERE c.id = ?")) {
-            statement.setString(1, id.toString());
-            try (ResultSet resultSet = statement.executeQuery()) {
-                return resultSet.next() ? readChannel(resultSet) : null;
-            }
-        }
+        return this.find(id);
     }
 
     /**
@@ -196,6 +183,17 @@ public class ChannelManager {
             identified.putIfAbsent(identity, entry);
         }
         return identified;
+    }
+
+    @Nullable
+    private Channel find(@NotNull UUID id) throws SQLException {
+        try (Connection connection = this.database.connection();
+             PreparedStatement statement = connection.prepareStatement(SELECT_CHANNELS + "WHERE c.id = ?")) {
+            statement.setString(1, id.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? readChannel(resultSet) : null;
+            }
+        }
     }
 
     @NotNull

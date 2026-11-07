@@ -1,6 +1,7 @@
-import {createFileRoute, useNavigate, useRouter} from '@tanstack/react-router';
-import {useEffect, useMemo, useState} from 'react';
+import {createFileRoute, useNavigate} from '@tanstack/react-router';
+import {useMemo, useState} from 'react';
 import {api} from '#/lib/api';
+import {useReloadEvery} from '#/lib/admin';
 import {formatTime, progressOf, useNow} from '#/lib/time';
 import {useTv} from '#/lib/tv';
 import type {Channel, Programme} from '#/lib/types';
@@ -20,16 +21,12 @@ function ChannelsPage() {
     const channels = Route.useLoaderData();
     const {tiles, activeTileId, watch} = useTv();
     const navigate = useNavigate();
-    const router = useRouter();
     const now = useNow();
     const [search, setSearch] = useState('');
     const [group, setGroup] = useState('');
 
     // Keep what's on up to date
-    useEffect(() => {
-        const interval = window.setInterval(() => router.invalidate({filter: (match) => match.routeId === Route.id}), 60_000);
-        return () => window.clearInterval(interval);
-    }, [router]);
+    useReloadEvery(Route.id, 60_000);
 
     const groups = useMemo(() => [...new Set(channels.map((channel) => channel.group).filter((name) => name !== null))], [channels]);
     const shown = useMemo(() => {

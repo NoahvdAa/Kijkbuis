@@ -77,7 +77,6 @@ import java.util.concurrent.TimeUnit;
 
 public class KijkbuisApp {
 
-    public static final KijkbuisApp INSTANCE = new KijkbuisApp();
     private static final Logger LOGGER = LogManager.getLogger(KijkbuisApp.class);
     private static final String VERSION = readVersion();
     private final Database database = new Database();
@@ -98,10 +97,11 @@ public class KijkbuisApp {
     private Undertow server;
 
     public static void main(String[] args) {
+        KijkbuisApp app = new KijkbuisApp();
         // Child processes outlive the JVM, so make sure ffmpeg gets stopped
-        Runtime.getRuntime().addShutdownHook(new Thread(INSTANCE::stop, "Kijkbuis shutdown"));
+        Runtime.getRuntime().addShutdownHook(new Thread(app::stop, "Kijkbuis shutdown"));
         try {
-            INSTANCE.start(Path.of(args.length > 0 ? args[0] : "kijkbuis.toml"));
+            app.start(Path.of(args.length > 0 ? args[0] : "kijkbuis.toml"));
         } catch (Exception ex) {
             LOGGER.error("Kijkbuis failed to start", ex);
             System.exit(1);
@@ -233,11 +233,6 @@ public class KijkbuisApp {
     /**
      * @return the version of Kijkbuis, see gradle.properties
      */
-    @NotNull
-    public static String version() {
-        return VERSION;
-    }
-
     @NotNull
     private static String readVersion() {
         // Filled in by the build

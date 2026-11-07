@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {type Canvas, type Corner, moveFrame, nudgeFrame, resizeFrame} from '#/lib/arrange';
 import {hasPrivilege, type User} from '#/lib/auth';
+import {useChannel} from '#/lib/channels';
 import {canFullscreenPage, toggleFullscreen, useFullscreenElement} from '#/lib/media';
 import {useProfiles} from '#/lib/profiles';
 import {type Tile, useTv} from '#/lib/tv';
@@ -19,7 +20,7 @@ import type {Profile} from '#/lib/types';
 import {Brand} from './Brand';
 import {ExitFullscreenIcon, FullscreenIcon} from './Icons';
 import {MultiviewPicker} from './MultiviewPicker';
-import {Player, useChannel} from './Player';
+import {Player} from './Player';
 
 type TvScreenProps = {
     /** Full screen while watching, or small in the top left while a menu is open */
@@ -29,7 +30,7 @@ type TvScreenProps = {
 
 /** How long the controls stay visible after the mouse last moved */
 const CONTROLS_TIMEOUT = 3_000;
-/** The menu that's open when picking the multiview grid. The screens' quality menus are named after their tile. */
+/** The menu that's open when picking the multiview grid. The screens' own menus are named after their tile. */
 const MULTIVIEW_MENU = 'multiview';
 
 /**

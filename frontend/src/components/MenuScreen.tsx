@@ -1,6 +1,6 @@
 import type {ReactNode} from 'react';
 import {type ErrorComponentProps, getRouteApi, Link, useRouter} from '@tanstack/react-router';
-import {ApiError} from '#/lib/api';
+import {errorMessage} from '#/lib/api';
 import {hasPrivilege} from '#/lib/auth';
 import {Brand} from './Brand';
 import {Button} from './Button';
@@ -60,7 +60,7 @@ export function MenuError({error}: ErrorComponentProps) {
 
     return <MenuScreen title="Something went wrong">
         <div className="grid justify-items-start gap-6">
-            <p className="text-muted">{error instanceof ApiError ? error.message : 'Kijkbuis can\'t be reached right now.'}</p>
+            <p className="text-muted">{errorMessage(error)}</p>
             <Button onClick={() => router.invalidate()}>Try again</Button>
         </div>
     </MenuScreen>;
