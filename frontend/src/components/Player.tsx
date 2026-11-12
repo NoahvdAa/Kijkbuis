@@ -226,6 +226,16 @@ export function Player({
                 }
                 return;
             }
+            if (event.key === 'm') {
+                setMuted(tile.id, !tile.muted);
+                return;
+            }
+            if (event.key === 'f') {
+                if (canFullscreenVideo()) {
+                    toggleFullscreen(container.current, video.current);
+                }
+                return;
+            }
             if (event.key !== 'i') {
                 return;
             }
@@ -238,7 +248,7 @@ export function Player({
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [pip, active, tile.id, tile.channelId, tile.captions, hasCaptions, bannerShownAt, setCaptions, onWake]);
+    }, [pip, active, tile.id, tile.channelId, tile.captions, tile.muted, hasCaptions, bannerShownAt, setCaptions, onWake, setMuted]);
 
     // The latest audio settings, for starting playback without restarting it whenever they change
     const audio = useRef(tile);
