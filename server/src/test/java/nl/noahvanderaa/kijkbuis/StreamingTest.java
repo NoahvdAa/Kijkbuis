@@ -71,6 +71,9 @@ class StreamingTest {
         // Interlaced PAL in 16:9 with non-square pixels, like many SD channels
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/anamorphic.ts", "testsrc2=size=720x576:rate=25", "-vf", "setsar=64/45", "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
                 "-pix_fmt", "yuv420p", "-flags", "+ildct+ilme", "-x264-params", "interlaced=1:tff=1", "-c:a", "mp2");
+        // Larger than the size limit for transcoding, which the anamorphic channel is exactly at
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/large.ts", "testsrc2=size=1280x720:rate=25", "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p", "-c:a", "mp2");
 
         // Dutch, and English with audio description
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/two-audio.ts", "testsrc2=size=320x240:rate=25", 2, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
@@ -89,6 +92,8 @@ class StreamingTest {
                 %s
                 #EXTINF:-1,Anamorphic
                 %s
+                #EXTINF:-1,Large
+                %s
                 #EXTINF:-1,Broken
                 %s
                 #EXTINF:-1,Two audio tracks
@@ -98,7 +103,7 @@ class StreamingTest {
                 #EXTINF:-1,Local file
                 file:///etc/hosts
                 """.formatted(upstream.url("/live.ts"), upstream.url("/mpeg2.ts"), upstream.url("/mpeg2-unwatched.ts"),
-                upstream.url("/anamorphic.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts")));
+                upstream.url("/anamorphic.ts"), upstream.url("/large.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts")));
 
         server = TestServer.start(tempDir, """
                 [streaming]
@@ -106,6 +111,7 @@ class StreamingTest {
 
                 [transcoding]
                 preset = "ultrafast"
+                max-source-height = 576
 
                 [[transcoding.profiles]]
                 id = "low"
@@ -246,7 +252,41 @@ class StreamingTest {
         assertEquals("h264,320,180,1:1", probe(transcoder, stream).getFirst());
         assertEquals(1024, stream.get("sourceWidth").getAsInt(), "The size it's shown at, not the size it's sent at");
         assertEquals(576, stream.get("sourceHeight").getAsInt());
+        assertFalse(stream.get("tooLargeToTranscode").getAsBoolean(), "It's exactly the size limit");
         stopStream(transcoder, stream);
+    }
+
+    @Test
+    void neverTranscodesChannelsOverTheSizeLimit() throws Exception {
+        // The first time, Kijkbuis doesn't know the channel's size yet. It starts transcoding, and starts again
+        // once ffmpeg says how large the channel is.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            JsonObject stream = startStream(transcoder, "Large", "low", null);
+            assertEquals("auto", stream.get("quality").getAsString(), "It plays at its own quality, whatever was picked");
+            assertFalse(stream.get("transcoding").getAsBoolean());
+            assertTrue(stream.get("tooLargeToTranscode").getAsBoolean());
+            assertEquals("h264,1280,720,1:1", probe(transcoder, stream).getFirst());
+            stopStream(transcoder, stream);
+        }
+
+        // A browser that can't play its codec would need it transcoded
+        HttpResponse<String> response = server.send("POST", "/api/streams", transcoder, startJson("Large", null, List.of("hevc")));
+        assertEquals(422, response.statusCode(), response.body());
+        assertTrue(json(response).getAsJsonObject().get("error").getAsString().contains("too large to transcode"), response.body());
+
+        // That's only decided once ffmpeg has looked at the channel, since it can be another size every time
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/large.ts", "testsrc2=size=320x240:rate=25", "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p", "-c:a", "mp2");
+        JsonObject smaller = startStream(transcoder, "Large", null, List.of("hevc"));
+        assertTrue(smaller.get("transcoding").getAsBoolean());
+        assertFalse(smaller.get("tooLargeToTranscode").getAsBoolean());
+        stopStream(transcoder, smaller);
+
+        JsonObject picked = startStream(transcoder, "Large", "low", null);
+        assertEquals("low", picked.get("quality").getAsString());
+        // 4:3, so it's narrower than the profile's box
+        assertEquals("h264,240,180,1:1", probe(transcoder, picked).getFirst());
+        stopStream(transcoder, picked);
     }
 
     @Test

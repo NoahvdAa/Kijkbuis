@@ -523,6 +523,7 @@ export function Player({
                     profiles={profiles}
                     sourceWidth={stream.status === 'playing' ? stream.stream.sourceWidth : null}
                     sourceHeight={stream.status === 'playing' ? stream.stream.sourceHeight : null}
+                    tooLarge={stream.status === 'playing' && stream.stream.tooLargeToTranscode}
                     sourceBitrateKbps={sourceBitrateKbps}
                     screen={multiview ? number : null}
                     open={openMenu === 'quality'}

@@ -20,6 +20,8 @@ type QualityPickerProps = {
     /** The size the channel is shown at, if known */
     sourceWidth: number | null
     sourceHeight: number | null
+    /** Whether the channel is too large to transcode, so it plays at its own quality whatever the screen is set to */
+    tooLarge: boolean
     /** How many kilobits per second the channel takes at auto quality, if it played at that quality long enough to tell */
     sourceBitrateKbps: number | null
     /** The number of the screen, in multiview */
@@ -38,6 +40,7 @@ export function QualityPicker({
                                   profiles,
                                   sourceWidth,
                                   sourceHeight,
+                                  tooLarge,
                                   sourceBitrateKbps,
                                   screen,
                                   open,
@@ -48,15 +51,18 @@ export function QualityPicker({
     const close = useCallback(() => onOpenChange(false), [onOpenChange]);
     useDismiss(open, container, close);
 
+    // A channel that's too large to transcode plays at its own quality. The screen keeps what it's set to for the
+    // next channel, but there's nothing to pick on this one.
+    const playing = tooLarge ? AUTO_QUALITY : quality;
     // Qualities above the channel's own are left out. The current one stays, even if it's above this channel (it was
     // picked on another one), so it's clear what the screen is set to.
-    const offered = profiles.filter((profile) => profile.id === quality || profileSuits(profile, sourceWidth, sourceHeight));
-    if (offered.length === 0 && quality === AUTO_QUALITY) {
+    const offered = tooLarge ? [] : profiles.filter((profile) => profile.id === quality || profileSuits(profile, sourceWidth, sourceHeight));
+    if (offered.length === 0 && quality === AUTO_QUALITY && !tooLarge) {
         // The channel is smaller than every quality, so there's nothing to pick
         return null;
     }
 
-    const label = profiles.find((profile) => profile.id === quality)?.name ?? 'Auto';
+    const label = profiles.find((profile) => profile.id === playing)?.name ?? 'Auto';
     const options = [
         {
             id: AUTO_QUALITY,
@@ -94,12 +100,15 @@ export function QualityPicker({
             {options.map((option) => <button
                 key={option.id}
                 type="button"
-                aria-pressed={option.id === quality}
+                aria-pressed={option.id === playing}
                 onClick={() => {
-                    onPick(option.id);
+                    // Auto is all there is on a channel that's too large, which shouldn't change what the screen is set to
+                    if (!tooLarge) {
+                        onPick(option.id);
+                    }
                     onOpenChange(false);
                 }}
-                className={`${pickerOptionClassName} ${option.id === quality ? 'text-accent' : ''}`}
+                className={`${pickerOptionClassName} ${option.id === playing ? 'text-accent' : ''}`}
             >
                 {option.name}
                 <span className="normal-case tracking-normal text-muted text-right">

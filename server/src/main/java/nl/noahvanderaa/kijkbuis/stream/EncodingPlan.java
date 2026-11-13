@@ -60,24 +60,29 @@ public record EncodingPlan(boolean transcode, @Nullable KijkbuisConfig.Transcode
     /**
      * Decides how to encode a stream.
      *
-     * @param profile        the quality the user picked, or null to pick automatically
-     * @param source         what the channel has, or null if that's not known yet
-     * @param playableCodecs the video codecs the user's browser can play, see {@link #normalizeCodecs}
-     * @param mayTranscode   whether the user may transcode
-     * @return the plan, or null if the browser can't play the channel and the user may not transcode
+     * @param profile         the quality the user picked, or null to pick automatically
+     * @param source          what the channel has, or null if that's not known yet
+     * @param playableCodecs  the video codecs the user's browser can play, see {@link #normalizeCodecs}
+     * @param mayTranscode    whether the user may transcode
+     * @param maxSourceHeight the largest channel that's transcoded, see
+     *                        {@link KijkbuisConfig.TranscodingConfig#maxSourceHeight()}
+     * @return the plan, or null if the browser can't play the channel, and the user may not transcode or the channel
+     * is too large to
      */
     @Nullable
     static EncodingPlan decide(@Nullable KijkbuisConfig.TranscodeProfile profile, @Nullable Source source,
-                               @NotNull Set<String> playableCodecs, boolean mayTranscode) {
+                               @NotNull Set<String> playableCodecs, boolean mayTranscode, int maxSourceHeight) {
         SourceVideo video = source != null ? source.video() : null;
         List<SourceAudio> audioTracks = switchableAudio(source);
         boolean interlaced = video != null && video.interlaced();
-        if (profile != null) {
+        // Channels over the size limit are passed through or not played at all, whatever the user picked
+        boolean transcodable = mayTranscode && (video == null || video.fitsIn(maxSourceHeight));
+        if (profile != null && transcodable) {
             return new EncodingPlan(true, profile, interlaced, false, audioTracks);
         }
         // Browsers can decode interlaced video, but show it without deinterlacing, which looks combed. Users who may
         // transcode get it deinterlaced, others still get to watch it.
-        if (interlaced && mayTranscode) {
+        if (interlaced && transcodable) {
             return new EncodingPlan(true, null, true, false, audioTracks);
         }
         String codec = video != null ? video.codec() : null;
@@ -85,7 +90,7 @@ public record EncodingPlan(boolean transcode, @Nullable KijkbuisConfig.Transcode
             return new EncodingPlan(false, null, false, "hevc".equals(codec), audioTracks);
         }
         // The browser can't play the codec, so transcode at the channel's own quality
-        return mayTranscode ? new EncodingPlan(true, null, false, false, audioTracks) : null;
+        return transcodable ? new EncodingPlan(true, null, false, false, audioTracks) : null;
     }
 
     /**

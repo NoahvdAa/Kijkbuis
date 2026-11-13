@@ -25,7 +25,8 @@ public interface Stream {
     Channel channel();
 
     /**
-     * @return the quality the viewer picked: auto, or the ID of a transcoding profile
+     * @return the quality the stream plays at: auto, or the ID of a transcoding profile. That's the one the viewer
+     * picked, unless the channel is too large to transcode, which makes it auto.
      */
     @NotNull
     String quality();

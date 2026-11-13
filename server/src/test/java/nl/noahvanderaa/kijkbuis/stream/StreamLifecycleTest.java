@@ -68,7 +68,7 @@ class StreamLifecycleTest {
     private static Stream stream() {
         User user = new User(UUID.randomUUID(), "viewer", "Viewer", Set.of(), Set.of());
         Channel channel = new Channel(UUID.randomUUID(), UUID.randomUUID(), "Live", null, null, "http://upstream.example/live.ts", null, null, null);
-        return new Stream(user, "session", channel, StreamManager.AUTO_QUALITY, new EncodingPlan(false, null, false, false));
+        return new Stream(user, "session", channel, StreamManager.AUTO_QUALITY, new EncodingPlan(false, null, false, false), 0);
     }
 
 }

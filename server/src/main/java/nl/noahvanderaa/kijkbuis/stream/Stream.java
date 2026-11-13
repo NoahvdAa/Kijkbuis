@@ -54,6 +54,7 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
     private final Channel channel;
     private final String quality;
     private final EncodingPlan plan;
+    private final int maxSourceHeight;
     private final Map<String, byte[]> files = new ConcurrentHashMap<>();
     private final CompletableFuture<Source> source = new CompletableFuture<>();
     /**
@@ -75,18 +76,22 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
     private Thread logReader = null;
 
     /**
-     * @param owner     the user watching the stream
-     * @param sessionId the session that started it, see {@link nl.noahvanderaa.kijkbuis.auth.SessionManager#idOf}
-     * @param channel   the channel being watched
-     * @param quality   the quality the user asked for, which is auto or a transcoding profile ID
-     * @param plan      how the video is encoded
+     * @param owner           the user watching the stream
+     * @param sessionId       the session that started it, see {@link nl.noahvanderaa.kijkbuis.auth.SessionManager#idOf}
+     * @param channel         the channel being watched
+     * @param quality         the quality it plays at, which is auto or a transcoding profile ID
+     * @param plan            how the video is encoded
+     * @param maxSourceHeight the largest channel that's transcoded, see
+     *                        {@link nl.noahvanderaa.kijkbuis.config.KijkbuisConfig.TranscodingConfig#maxSourceHeight()}
      */
-    Stream(@NotNull User owner, @NotNull String sessionId, @NotNull Channel channel, @NotNull String quality, @NotNull EncodingPlan plan) {
+    Stream(@NotNull User owner, @NotNull String sessionId, @NotNull Channel channel, @NotNull String quality, @NotNull EncodingPlan plan,
+           int maxSourceHeight) {
         this.owner = owner;
         this.sessionId = sessionId;
         this.channel = channel;
         this.quality = quality;
         this.plan = plan;
+        this.maxSourceHeight = maxSourceHeight;
     }
 
     /**
@@ -346,6 +351,8 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         // The size it's shown at, so non-square pixels are accounted for
         obj.addProperty("sourceWidth", source != null && source.width() > 0 ? source.width() : null);
         obj.addProperty("sourceHeight", source != null && source.height() > 0 ? source.height() : null);
+        // Whether the channel is over the size limit for transcoding, so it only plays at its own quality
+        obj.addProperty("tooLargeToTranscode", source != null && !source.fitsIn(this.maxSourceHeight));
         // The tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
         // nothing to switch between.
         JsonArray audioTracks = new JsonArray();

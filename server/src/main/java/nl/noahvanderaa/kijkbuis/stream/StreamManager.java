@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,6 +80,10 @@ public class StreamManager {
      * Whether the browser can play it depends on the channel's codec and whether it's interlaced, which are only known
      * for sure once ffmpeg has looked at the channel. So ffmpeg starts with what the channel was like last time, and is
      * restarted with different settings if that turns out to be wrong, before it produced anything.
+     * <p>
+     * Channels over the size limit for transcoding are passed through whatever quality the user picked, so the stream's
+     * quality is auto then. That goes by the size ffmpeg finds as the stream starts, not by what the channel was like
+     * before.
      *
      * @param sessionId      the session starting it, so it's stopped when that session logs out
      * @param profile        the quality the user picked, or null to pick automatically
@@ -95,35 +100,40 @@ public class StreamManager {
             throw new ApiException(StatusCodes.FORBIDDEN, "You are not allowed to change the quality");
         }
 
-        String quality = profile != null ? profile.id() : AUTO_QUALITY;
-        StreamStartingEvent event = this.eventBus.call(new StreamStartingEvent(user, channel, quality));
+        StreamStartingEvent event = this.eventBus.call(new StreamStartingEvent(user, channel, profile != null ? profile.id() : AUTO_QUALITY));
         if (event.isCancelled()) {
             LOGGER.info("A plugin stopped {} from watching {}: {}", user.username(), channel.name(), event.cancelMessage());
             throw new ApiException(StatusCodes.FORBIDDEN, event.cancelMessage());
         }
 
         Instant deadline = Instant.now().plus(this.config.startupTimeout());
-        Source knownSource = this.sources.get(channel.id());
-        EncodingPlan plan = EncodingPlan.decide(profile, knownSource, playableCodecs, mayTranscode);
+        int maxSourceHeight = this.transcodingConfig.maxSourceHeight();
+        EncodingPlan plan = EncodingPlan.decide(profile, this.sources.get(channel.id()), playableCodecs, mayTranscode, maxSourceHeight);
         if (plan == null) {
-            throw unplayable(knownSource != null ? knownSource.video() : null);
+            // The channel couldn't be played last time, but it may have another codec or size by now, so start as if
+            // it's not known yet, and go by what ffmpeg finds
+            plan = Objects.requireNonNull(EncodingPlan.decide(profile, null, playableCodecs, mayTranscode, maxSourceHeight));
         }
 
-        Stream stream = this.launch(user, sessionId, channel, quality, plan);
+        Stream stream = this.launch(user, sessionId, channel, plan);
         try {
             Source source = stream.awaitSource(remaining(deadline));
             this.sources.put(channel.id(), source);
 
-            EncodingPlan actualPlan = EncodingPlan.decide(profile, source, playableCodecs, mayTranscode);
+            EncodingPlan actualPlan = EncodingPlan.decide(profile, source, playableCodecs, mayTranscode, maxSourceHeight);
             if (actualPlan == null) {
                 this.discard(stream.id());
-                throw unplayable(source.video());
+                throw unplayable(source.video(), mayTranscode);
             }
             if (!actualPlan.equals(plan)) {
                 LOGGER.info("{} has {}, restarting its stream for {} with different settings", channel.name(),
                         source.describe(), user.username());
                 this.discard(stream.id());
-                stream = this.launch(user, sessionId, channel, quality, actualPlan);
+                stream = this.launch(user, sessionId, channel, actualPlan);
+            }
+            if (profile != null && actualPlan.profile() == null) {
+                LOGGER.info("{} is too large to transcode, so {} gets it at its own quality rather than {}", channel.name(),
+                        user.username(), profile.id());
             }
 
             stream.awaitReady(remaining(deadline));
@@ -304,9 +314,10 @@ public class StreamManager {
      * Creates a stream and starts its ffmpeg.
      */
     @NotNull
-    private Stream launch(@NotNull User user, @NotNull String sessionId, @NotNull Channel channel, @NotNull String quality,
-                          @NotNull EncodingPlan plan) {
-        Stream stream = new Stream(user, sessionId, channel, quality, plan);
+    private Stream launch(@NotNull User user, @NotNull String sessionId, @NotNull Channel channel, @NotNull EncodingPlan plan) {
+        // The quality it plays at, which isn't the one the user picked if the channel is too large to transcode
+        String quality = plan.profile() != null ? plan.profile().id() : AUTO_QUALITY;
+        Stream stream = new Stream(user, sessionId, channel, quality, plan, this.transcodingConfig.maxSourceHeight());
         this.streams.put(stream.id(), stream);
         this.streamsByPlaybackToken.put(stream.playbackToken(), stream);
         try {
@@ -320,10 +331,14 @@ public class StreamManager {
         return stream;
     }
 
+    /**
+     * @param mayTranscode whether the user may transcode, in which case it's the channel's size that's in the way
+     */
     @NotNull
-    private static ApiException unplayable(@Nullable SourceVideo source) {
+    private static ApiException unplayable(@Nullable SourceVideo source, boolean mayTranscode) {
         return new ApiException(StatusCodes.UNPROCESSABLE_ENTITY, "Your browser can't play this channel's video ("
-                + (source != null ? source.codec() : null) + "), and you're not allowed to transcode it");
+                + (source != null ? source.codec() : null) + "), and "
+                + (mayTranscode ? "the channel is too large to transcode" : "you're not allowed to transcode it"));
     }
 
     @NotNull

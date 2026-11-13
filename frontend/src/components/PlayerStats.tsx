@@ -109,7 +109,7 @@ export function PlayerStats({video, container, debug, channel, stream, status, o
                 <Row label="Server">
                     {stream.transcoding
                         ? `Transcoding to H.264${stream.sourceInterlaced ? ', deinterlacing' : ''}`
-                        : `Passing video through${stream.sourceInterlaced ? ' (interlaced)' : ''}`}
+                        : `Passing video through${stream.sourceInterlaced ? ' (interlaced)' : ''}${stream.tooLargeToTranscode ? ' · too large to transcode' : ''}`}
                 </Row>
                 <Row label="Source">
                     {[

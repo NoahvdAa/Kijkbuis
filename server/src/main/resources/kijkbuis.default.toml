@@ -52,6 +52,12 @@ preset = "veryfast"
 # Double rate turns every field into a frame (e.g. 50i becomes 50p), which keeps motion as smooth as on TV. Turn it off
 # to keep the channel's frame rate instead (e.g. 25p), which takes about half the CPU but makes motion less fluid.
 deinterlace-double-rate = true
+# Transcoding large channels (such as 4K) takes a lot of CPU. Channels larger than a 16:9 picture of this height (e.g.
+# 1080 is 1920x1080, or 1080x1920 for portrait channels) are never transcoded: they play at their own quality whatever
+# the user picks, aren't deinterlaced, and can't be watched in browsers that can't play their codec. Kijkbuis looks at
+# the size every time a channel is started, so channels that are only large some of the time are covered too.
+# 0 transcodes channels of any size.
+max-source-height = 0
 
 # The qualities users can pick. Each is the size of a 16:9 picture of that height (e.g. 720 is 1280x720): channels are
 # scaled down to fit in it, keeping their aspect ratio, and never up. Users are only offered qualities up to the size of

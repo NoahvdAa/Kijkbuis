@@ -102,6 +102,8 @@ export type StreamInfo = {
     /** The size the channel is shown at, if known */
     sourceWidth: number | null
     sourceHeight: number | null
+    /** Whether the channel is over the backend's size limit for transcoding, so it only plays at its own quality */
+    tooLargeToTranscode: boolean
     /**
      * The audio tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
      * only one (or none).

@@ -48,6 +48,7 @@ class KijkbuisConfigTest {
         assertEquals("ffmpeg", config.streaming().ffmpegPath());
         assertEquals("veryfast", config.transcoding().preset());
         assertTrue(config.transcoding().deinterlaceDoubleRate());
+        assertEquals(0, config.transcoding().maxSourceHeight(), "Channels of any size are transcoded unless a limit is set");
         assertEquals(List.of("1080p", "720p", "480p", "360p"), config.transcoding().profiles().stream().map(KijkbuisConfig.TranscodeProfile::id).toList());
         assertEquals(720, config.transcoding().profile("720p").height());
         assertEquals(3000, config.transcoding().profile("720p").bitrateKbps());
@@ -104,6 +105,25 @@ class KijkbuisConfigTest {
                 """);
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> KijkbuisConfig.load(path));
         assertTrue(ex.getMessage().contains("auto is reserved"), ex.getMessage());
+    }
+
+    @Test
+    void limitsTheSizeOfTranscodedChannels(@TempDir Path dir) throws Exception {
+        Path path = dir.resolve("kijkbuis.toml");
+        String config = """
+                [auth]
+                issuer = "https://auth.example.com"
+                client-id = "kijkbuis"
+
+                [transcoding]
+                max-source-height = %d
+                """;
+        Files.writeString(path, config.formatted(1080));
+        assertEquals(1080, KijkbuisConfig.load(path).transcoding().maxSourceHeight());
+
+        Files.writeString(path, config.formatted(100));
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> KijkbuisConfig.load(path));
+        assertTrue(ex.getMessage().contains("transcoding.max-source-height"), ex.getMessage());
     }
 
 }

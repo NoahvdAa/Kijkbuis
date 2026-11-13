@@ -54,6 +54,10 @@ services:
   `https://`. Starting a channel can take up to the startup timeout (20 seconds by default), so don't let the proxy
   time out sooner.
 - Transcoding (lower qualities, unsupported codecs, interlaced channels) runs libx264 on the CPU, once per viewer.
+  Large channels such as 4K take a lot of it. To keep those from being transcoded at all, set
+  `transcoding.max-source-height`, e.g. to `1080`, which allows up to 1920x1080, or 1080x1920 for portrait channels.
+  That goes by the size a channel has when it's started, not by its name or group, so channels that are only 4K some
+  of the time are covered.
 - Audio is always converted to AAC, which is cheap next to video. Channels with several audio tracks (up to 8) have
   each converted, so viewers can switch between them.
 - Outside Docker, build the frontend with `npm run build` and point `server.frontend-dir` at `frontend/dist`.

@@ -80,7 +80,7 @@ const response = await fetch('/api/streams', {
 });
 const stream = await response.json();
 // { id, channelId, playlistUrl, quality, transcoding, sourceVideoCodec, sourceInterlaced, sourceWidth, sourceHeight,
-//   audioTracks }
+//   tooLargeToTranscode, audioTracks }
 ```
 
 The request only returns once the first segment is ready, which usually takes a few seconds. Show a loading state in
@@ -92,6 +92,14 @@ When `quality` is `auto`:
 - Interlaced video is transcoded to deinterlace it, since browsers show it with combing. Users without the `transcode`
   privilege get it passed through.
 - `transcoding` in the response tells you whether it's transcoded.
+
+Admins can set a size limit for transcoding (`transcoding.max-source-height` in the config), since large channels such
+as 4K take a lot of CPU. A channel over the limit is never transcoded, and has `tooLargeToTranscode` set:
+- It's passed through if the browser can play it, whatever `quality` was asked for. `quality` in the response is the
+  one the stream plays at, so it's `auto` then.
+- It isn't deinterlaced, and it can't be started (`422`) if the browser can't play its video.
+- That goes by the size the channel has as the stream starts, so the same channel can be over the limit one time and
+  under it the next.
 
 ### Play it
 
@@ -120,13 +128,13 @@ The playlist URL contains a secret token and works without the session cookie. S
 
 ### When starting fails
 
-| Status | Meaning                                                                                   |
-|--------|-------------------------------------------------------------------------------------------|
-| 403    | The user picked a quality without the `transcode` privilege                               |
-| 404    | The channel doesn't exist                                                                  |
-| 422    | The browser can't play the channel's codec, and the user may not transcode               |
-| 502    | The channel couldn't be started, e.g. because the provider is down                        |
-| 504    | The channel took too long to start                                                        |
+| Status | Meaning                                                                                                   |
+|--------|-----------------------------------------------------------------------------------------------------------|
+| 403    | The user picked a quality without the `transcode` privilege                                               |
+| 404    | The channel doesn't exist                                                                                 |
+| 422    | The browser can't play the channel's codec, and the user may not transcode or the channel is too large to |
+| 502    | The channel couldn't be started, e.g. because the provider is down                                        |
+| 504    | The channel took too long to start                                                                        |
 
 The `error` message is fine to show as is.
 
@@ -138,6 +146,8 @@ The `error` message is fine to show as is.
   offer a profile when the channel reaches it: `sourceWidth >= width || sourceHeight >= height`. `sourceWidth` and
   `sourceHeight` are the size the channel is shown at, so channels with non-square pixels (720x576 shown as 16:9 is
   1024x576) and any aspect ratio work out. They're `null` if unknown.
+- Don't offer any profile when the stream has `tooLargeToTranscode` set: picking one gets the channel at its own
+  quality anyway. Keep the quality the user picked earlier for the next channel, though.
 - To switch quality:
   1. Start a new stream with `quality: '<profile id>'`.
   2. Switch the player over to it.

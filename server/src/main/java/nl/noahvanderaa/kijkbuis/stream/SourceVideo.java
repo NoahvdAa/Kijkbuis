@@ -1,5 +1,6 @@
 package nl.noahvanderaa.kijkbuis.stream;
 
+import nl.noahvanderaa.kijkbuis.config.KijkbuisConfig;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,6 +62,17 @@ record SourceVideo(@NotNull String codec, boolean interlaced, int width, int hei
             }
         }
         return new SourceVideo(codec, interlaced, width, height);
+    }
+
+    /**
+     * @param maxHeight the height of a 16:9 picture, such as 1080 for 1920x1080, or 0 for a picture of any size
+     * @return whether the video is at most that large, by the size it's shown at. Portrait video counts as if it were
+     * on its side, so 1080x1920 fits in 1080, since it takes as much to transcode as 1920x1080. Whatever its aspect
+     * ratio, both its sides have to fit, so 2560x1080 doesn't fit in 1080. Video of unknown size fits.
+     */
+    boolean fitsIn(int maxHeight) {
+        return maxHeight == 0 || (Math.min(this.width, this.height) <= maxHeight
+                && Math.max(this.width, this.height) <= KijkbuisConfig.TranscodeProfile.widthOf(maxHeight));
     }
 
     /**

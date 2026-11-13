@@ -109,6 +109,9 @@ public class KijkbuisConfig {
         if (this.transcoding.preset().isBlank()) {
             throw new IllegalStateException("Invalid config: transcoding.preset must be set");
         }
+        if (this.transcoding.maxSourceHeight() != 0 && (this.transcoding.maxSourceHeight() < 144 || this.transcoding.maxSourceHeight() > 4320)) {
+            throw new IllegalStateException("Invalid config: transcoding.max-source-height must be between 144 and 4320, or 0 for no limit");
+        }
         Set<String> profileIds = new HashSet<>();
         for (TranscodeProfile profile : this.transcoding.profiles()) {
             if (!PROFILE_ID.matcher(profile.id()).matches()) {
@@ -320,6 +323,7 @@ public class KijkbuisConfig {
 
         private String preset = "veryfast";
         private boolean deinterlaceDoubleRate = true;
+        private int maxSourceHeight = 0;
         private List<TranscodeProfile> profiles = List.of();
 
         /**
@@ -335,6 +339,16 @@ public class KijkbuisConfig {
          */
         public boolean deinterlaceDoubleRate() {
             return this.deinterlaceDoubleRate;
+        }
+
+        /**
+         * @return the largest channel that's transcoded, as the height of a 16:9 picture like the profiles, or 0 if
+         * channels of any size are. Larger channels are only passed through, since transcoding them takes a lot of CPU.
+         * Unlike with the profiles, it doesn't matter which way up a channel is: portrait channels count as if they
+         * were on their side.
+         */
+        public int maxSourceHeight() {
+            return this.maxSourceHeight;
         }
 
         @NotNull
@@ -392,7 +406,14 @@ public class KijkbuisConfig {
          * down to fit in this box, whatever their aspect ratio.
          */
         public int width() {
-            return (int) Math.round(this.height * 16 / 9.0 / 2) * 2;
+            return widthOf(this.height);
+        }
+
+        /**
+         * @return the width of a 16:9 picture of the given height, rounded to an even number
+         */
+        public static int widthOf(int height) {
+            return (int) Math.round(height * 16 / 9.0 / 2) * 2;
         }
 
         public int bitrateKbps() {
