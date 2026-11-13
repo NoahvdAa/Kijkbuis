@@ -43,7 +43,10 @@ export type Guide = {
 export type Profile = {
     id: string
     name: string
-    /** The profile is a 16:9 box of this width and height. Channels are scaled down to fit in it, never up. */
+    /**
+     * The profile is a 16:9 box of this width and height, which is on its side for portrait channels. Channels are
+     * scaled down to fit in it, never up.
+     */
     width: number
     height: number
     bitrateKbps: number

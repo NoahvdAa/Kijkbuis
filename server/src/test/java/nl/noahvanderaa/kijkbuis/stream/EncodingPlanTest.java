@@ -152,8 +152,9 @@ class EncodingPlanTest {
 
         List<String> profile = FfmpegCommand.build("ffmpeg", "veryfast", true, "rtsp://upstream.example/1", ingest, new EncodingPlan(true, LOW, false, false));
         assertEquals("libx264", profile.get(profile.indexOf("-c:v") + 1));
-        assertEquals("bwdif=mode=send_frame:deint=interlaced,scale=w='round(iw*sar*min(1,min(640/(iw*sar),360/ih))/2)*2':h='round(ih*min(1,min(640/(iw*sar),360/ih))/2)*2',setsar=1",
-                profile.get(profile.indexOf("-vf") + 1), "Fits in a 640x360 box");
+        assertEquals("bwdif=mode=send_frame:deint=interlaced,scale=w='round(iw*sar*min(1,min(640/max(iw*sar,ih),360/min(iw*sar,ih)))/2)*2'"
+                        + ":h='round(ih*min(1,min(640/max(iw*sar,ih),360/min(iw*sar,ih)))/2)*2',setsar=1",
+                profile.get(profile.indexOf("-vf") + 1), "Fits in a 640x360 box, or 360x640 for portrait channels");
         assertEquals("700k", profile.get(profile.indexOf("-b:v") + 1));
         assertFalse(profile.contains("-reconnect"), "Reconnect options only exist for HTTP");
 

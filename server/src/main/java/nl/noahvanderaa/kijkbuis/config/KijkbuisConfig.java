@@ -344,7 +344,7 @@ public class KijkbuisConfig {
         /**
          * @return the largest channel that's transcoded, as the height of a 16:9 picture like the profiles, or 0 if
          * channels of any size are. Larger channels are only passed through, since transcoding them takes a lot of CPU.
-         * Unlike with the profiles, it doesn't matter which way up a channel is: portrait channels count as if they
+         * Like with the profiles, it doesn't matter which way up a channel is: portrait channels count as if they
          * were on their side.
          */
         public int maxSourceHeight() {
@@ -403,7 +403,8 @@ public class KijkbuisConfig {
 
         /**
          * @return the width of a 16:9 picture of the profile's height, rounded to an even number. Channels are scaled
-         * down to fit in this box, whatever their aspect ratio.
+         * down to fit in this box, whatever their aspect ratio. For portrait channels the box is on its side, so
+         * they keep as many pixels as landscape ones.
          */
         public int width() {
             return widthOf(this.height);

@@ -142,8 +142,9 @@ The `error` message is fine to show as is.
 
 - `GET /api/profiles` returns the qualities `{ id, name, width, height, bitrateKbps }`. Only show the picker to users
   with the `transcode` privilege.
-- A profile is a 16:9 box: channels are scaled down to fit in it, keeping their aspect ratio, and never up. So only
-  offer a profile when the channel reaches it: `sourceWidth >= width || sourceHeight >= height`. `sourceWidth` and
+- A profile is a 16:9 box: channels are scaled down to fit in it, keeping their aspect ratio, and never up. For
+  portrait channels the box is on its side, so 720p is 720x1280 for those. So only offer a profile when the channel
+  reaches it: `max(sourceWidth, sourceHeight) >= width || min(sourceWidth, sourceHeight) >= height`. `sourceWidth` and
   `sourceHeight` are the size the channel is shown at, so channels with non-square pixels (720x576 shown as 16:9 is
   1024x576) and any aspect ratio work out. They're `null` if unknown.
 - Don't offer any profile when the stream has `tooLargeToTranscode` set: picking one gets the channel at its own

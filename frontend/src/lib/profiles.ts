@@ -38,13 +38,15 @@ export function useProfiles(enabled: boolean): Profile[] {
 /**
  * @return whether a profile is worth picking for a channel of the given size, which is when it scales the channel
  * down, or keeps it the same size at a capped bitrate. A larger profile only costs a transcode, and doesn't add
- * detail. The size is the size the channel is shown at, so it works for any aspect ratio.
+ * detail. The size is the size the channel is shown at, so it works for any aspect ratio. For portrait channels the
+ * profile's box is on its side, which is how the backend scales them.
  */
 export function profileSuits(profile: Profile, sourceWidth: number | null, sourceHeight: number | null): boolean {
     if (sourceWidth === null || sourceHeight === null) {
         return true;
     }
-    return sourceWidth >= profile.width || sourceHeight >= profile.height;
+    // The box's long side goes with the channel's long side
+    return Math.max(sourceWidth, sourceHeight) >= profile.width || Math.min(sourceWidth, sourceHeight) >= profile.height;
 }
 
 /**

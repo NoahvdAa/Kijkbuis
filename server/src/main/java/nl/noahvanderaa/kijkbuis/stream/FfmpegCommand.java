@@ -82,8 +82,10 @@ final class FfmpegCommand {
             if (plan.profile() != null) {
                 // Fit the picture in the profile's 16:9 box by the shape it's shown at, never scaling up. The output
                 // uses square pixels, so channels with non-square pixels (e.g. 720x576 shown as 16:9) come out right,
-                // and wider or narrower channels (4:3, cinemascope, portrait) are scaled down as far as they need.
-                String factor = "min(1,min(" + plan.profile().width() + "/(iw*sar)," + plan.profile().height() + "/ih))";
+                // and wider or narrower channels (4:3, cinemascope) are scaled down as far as they need. For portrait
+                // channels the box is on its side, so they keep as many pixels as landscape ones: the box's long side
+                // goes with the picture's long side.
+                String factor = "min(1,min(" + plan.profile().width() + "/max(iw*sar,ih)," + plan.profile().height() + "/min(iw*sar,ih)))";
                 filters += ",scale=w='round(iw*sar*" + factor + "/2)*2':h='round(ih*" + factor + "/2)*2',setsar=1";
                 int bitrate = plan.profile().bitrateKbps();
                 command.addAll(List.of("-vf", filters, "-b:v", bitrate + "k", "-maxrate", bitrate + "k", "-bufsize", (bitrate * 2) + "k"));

@@ -59,9 +59,9 @@ deinterlace-double-rate = true
 # 0 transcodes channels of any size.
 max-source-height = 0
 
-# The qualities users can pick. Each is the size of a 16:9 picture of that height (e.g. 720 is 1280x720): channels are
-# scaled down to fit in it, keeping their aspect ratio, and never up. Users are only offered qualities up to the size of
-# the channel they're watching.
+# The qualities users can pick. Each is the size of a 16:9 picture of that height (e.g. 720 is 1280x720, or 720x1280
+# for portrait channels): channels are scaled down to fit in it, keeping their aspect ratio, and never up. Users are
+# only offered qualities up to the size of the channel they're watching.
 [[transcoding.profiles]]
 id = "1080p"
 name = "1080p"

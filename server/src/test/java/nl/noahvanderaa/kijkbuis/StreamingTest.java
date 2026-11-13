@@ -74,6 +74,9 @@ class StreamingTest {
         // Larger than the size limit for transcoding, which the anamorphic channel is exactly at
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/large.ts", "testsrc2=size=1280x720:rate=25", "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
                 "-pix_fmt", "yuv420p", "-c:a", "mp2");
+        // Portrait, like a phone held upright
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/portrait.ts", "testsrc2=size=240x320:rate=25", "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p", "-c:a", "mp2");
 
         // Dutch, and English with audio description
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/two-audio.ts", "testsrc2=size=320x240:rate=25", 2, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
@@ -94,6 +97,8 @@ class StreamingTest {
                 %s
                 #EXTINF:-1,Large
                 %s
+                #EXTINF:-1,Portrait
+                %s
                 #EXTINF:-1,Broken
                 %s
                 #EXTINF:-1,Two audio tracks
@@ -103,7 +108,7 @@ class StreamingTest {
                 #EXTINF:-1,Local file
                 file:///etc/hosts
                 """.formatted(upstream.url("/live.ts"), upstream.url("/mpeg2.ts"), upstream.url("/mpeg2-unwatched.ts"),
-                upstream.url("/anamorphic.ts"), upstream.url("/large.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts")));
+                upstream.url("/anamorphic.ts"), upstream.url("/large.ts"), upstream.url("/portrait.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts")));
 
         server = TestServer.start(tempDir, """
                 [streaming]
@@ -253,6 +258,15 @@ class StreamingTest {
         assertEquals(1024, stream.get("sourceWidth").getAsInt(), "The size it's shown at, not the size it's sent at");
         assertEquals(576, stream.get("sourceHeight").getAsInt());
         assertFalse(stream.get("tooLargeToTranscode").getAsBoolean(), "It's exactly the size limit");
+        stopStream(transcoder, stream);
+    }
+
+    @Test
+    void transcodesPortraitChannelsToAsManyPixelsAsLandscapeOnes() throws Exception {
+        JsonObject stream = startStream(transcoder, "Portrait", "low", null);
+        assertEquals("low", stream.get("quality").getAsString());
+        // The profile's 320x180 box on its side, which would otherwise make it 136x180
+        assertEquals("h264,180,240,1:1", probe(transcoder, stream).getFirst());
         stopStream(transcoder, stream);
     }
 
