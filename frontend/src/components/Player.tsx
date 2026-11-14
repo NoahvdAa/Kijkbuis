@@ -231,7 +231,7 @@ export function Player({
                 return;
             }
             if (event.key === 'f') {
-                if (canFullscreenVideo()) {
+                if (container.current && canFullscreenVideo()) {
                     toggleFullscreen(container.current, video.current);
                 }
                 return;
