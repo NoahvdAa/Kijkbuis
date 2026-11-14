@@ -5,6 +5,8 @@ import org.jetbrains.annotations.NotNull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Builds the ffmpeg command for a stream.
@@ -18,9 +20,13 @@ final class FfmpegCommand {
     private static final int SOURCE_QUALITY_CRF = 21;
     private static final int SOURCE_QUALITY_MAX_BITRATE_KBPS = 20_000;
     /**
+     * What every audio track is converted to, which is all an audio only stream takes
+     */
+    static final int AUDIO_BITRATE_KBPS = 128;
+    /**
      * The group the audio tracks are in, when each has a playlist of its own. Players pick one track of a group.
      */
-    private static final String AUDIO_GROUP = "audio";
+    static final String AUDIO_GROUP = "audio";
     /**
      * The name of a rendition's playlist, where ffmpeg puts its number in place of %v, see {@link #renditionPlaylist}
      */
@@ -31,7 +37,7 @@ final class FfmpegCommand {
 
     /**
      * When every audio track has a playlist of its own, the video and each audio track are a rendition, numbered from
-     * 0 in the order they're mapped: the video, then the audio tracks.
+     * 0 in the order they're mapped: the video, if the stream has any, then the audio tracks.
      *
      * @return the name of a rendition's playlist
      */
@@ -63,10 +69,16 @@ final class FfmpegCommand {
         if (separateAudio) {
             // The tracks ffmpeg found when it last played the channel. If one isn't there anymore, ffmpeg stops right
             // after listing the channel's tracks, and the stream starts again with the ones it has now.
-            command.addAll(List.of("-map", "0:v:0"));
+            if (!plan.audioOnly()) {
+                command.addAll(List.of("-map", "0:v:0"));
+            }
             for (SourceAudio track : plan.audioTracks()) {
                 command.addAll(List.of("-map", "0:a:" + track.index()));
             }
+        } else if (plan.audioOnly()) {
+            // It has to be there: ffmpeg picks tracks by itself if it's told to use none, which would be the video.
+            // So for a channel without sound it stops right after listing the channel's tracks, like above.
+            command.addAll(List.of("-map", "0:a:0"));
         } else {
             // Only the first video and audio track, either may be missing (e.g. for radio channels)
             command.addAll(List.of("-map", "0:v:0?", "-map", "0:a:0?"));
@@ -95,7 +107,7 @@ final class FfmpegCommand {
             }
             // Keyframes exactly at segment boundaries, so every segment has the same length
             command.addAll(List.of("-force_key_frames", "expr:gte(t,n_forced*" + SEGMENT_SECONDS + ")"));
-        } else {
+        } else if (!plan.audioOnly()) {
             command.addAll(List.of("-c:v", "copy"));
             if (plan.hvc1Tag()) {
                 command.addAll(List.of("-tag:v", "hvc1"));
@@ -105,7 +117,7 @@ final class FfmpegCommand {
         command.addAll(List.of(
                 // TV channels often use AC-3 or MP2 audio which browsers can't play, while converting audio to stereo
                 // AAC is cheap, so always do that
-                "-c:a", "aac", "-ac", "2",
+                "-c:a", "aac", "-b:a", AUDIO_BITRATE_KBPS + "k", "-ac", "2",
                 "-f", "hls",
                 "-hls_time", String.valueOf(SEGMENT_SECONDS),
                 "-hls_list_size", "6",
@@ -121,11 +133,12 @@ final class FfmpegCommand {
             // Browsers only play the first audio track of a segment, so every track gets segments and a playlist of
             // its own, and the player switches between those. A master playlist ties them together. %v is the number
             // of the rendition, which ffmpeg adds to the names of the init files too.
-            command.addAll(List.of(
-                    "-hls_segment_filename", ingestUri + "seg_%v_%d.m4s",
-                    "-master_pl_name", Stream.PLAYLIST,
-                    "-var_stream_map", streamMap(plan.audioTracks())
-            ));
+            command.addAll(List.of("-hls_segment_filename", ingestUri + "seg_%v_%d.m4s"));
+            if (!plan.audioOnly()) {
+                // Without video, ffmpeg's master playlist isn't one players can use, see AudioOnlyPlaylist
+                command.addAll(List.of("-master_pl_name", Stream.PLAYLIST));
+            }
+            command.addAll(List.of("-var_stream_map", streamMap(plan)));
         } else {
             command.addAll(List.of("-hls_segment_filename", ingestUri + "seg_%d.m4s"));
         }
@@ -140,10 +153,15 @@ final class FfmpegCommand {
 
     /**
      * @return the renditions for ffmpeg's -var_stream_map: the video, with the audio tracks as a group of which the
-     * first plays unless the viewer picks another
+     * first plays unless the viewer picks another. Without video it's only the audio tracks: what they're like is
+     * in the master playlist, which ffmpeg doesn't write then.
      */
     @NotNull
-    private static String streamMap(@NotNull List<SourceAudio> audioTracks) {
+    private static String streamMap(@NotNull EncodingPlan plan) {
+        List<SourceAudio> audioTracks = plan.audioTracks();
+        if (plan.audioOnly()) {
+            return IntStream.range(0, audioTracks.size()).mapToObj((track) -> "a:" + track).collect(Collectors.joining(" "));
+        }
         StringBuilder map = new StringBuilder("v:0,agroup:" + AUDIO_GROUP);
         for (int i = 0; i < audioTracks.size(); i++) {
             map.append(" a:").append(i).append(",agroup:").append(AUDIO_GROUP);

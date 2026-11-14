@@ -97,7 +97,7 @@ export type Privilege = 'admin' | 'transcode';
 export type StreamInfo = {
     id: string
     playlistUrl: string
-    /** auto or a profile ID */
+    /** auto, audio or a profile ID */
     quality: string
     transcoding: boolean
     sourceVideoCodec: string | null
@@ -107,6 +107,10 @@ export type StreamInfo = {
     sourceHeight: number | null
     /** Whether the channel is over the backend's size limit for transcoding, so it only plays at its own quality */
     tooLargeToTranscode: boolean
+    /** Whether the channel has sound. With video too, it can play audio only. */
+    sourceHasAudio: boolean
+    /** How many kilobits per second the sound takes, which is all an audio only stream takes */
+    audioBitrateKbps: number
     /**
      * The audio tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
      * only one (or none).
@@ -120,7 +124,7 @@ export type ActiveStream = {
     channelId: string
     channelName: string
     channelLogoUrl: string | null
-    /** auto or a profile ID */
+    /** auto, audio or a profile ID */
     quality: string
     transcoding: boolean
     sourceVideoCodec: string | null

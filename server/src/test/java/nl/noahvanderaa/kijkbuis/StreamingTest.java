@@ -85,6 +85,13 @@ class StreamingTest {
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/changing-audio.ts", "testsrc2=size=320x240:rate=25", 3, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
                 "-pix_fmt", "yuv420p", "-c:a", "mp2");
 
+        // No sound at all
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/silent.ts", "testsrc2=size=320x240:rate=25", 0, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
+                "-pix_fmt", "yuv420p");
+        // No video, like a radio channel, with one audio track and with two
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/radio.ts", null, "-c:a", "mp2");
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/two-audio-radio.ts", null, 2, "-c:a", "mp2", "-metadata:s:a:0", "language=dut", "-metadata:s:a:1", "language=eng");
+
         upstream.serve("/channels.m3u", 200, """
                 #EXTM3U
                 #EXTINF:-1,Live
@@ -105,10 +112,17 @@ class StreamingTest {
                 %s
                 #EXTINF:-1,Changing audio
                 %s
+                #EXTINF:-1,Silent
+                %s
+                #EXTINF:-1,Radio
+                %s
+                #EXTINF:-1,Two audio tracks radio
+                %s
                 #EXTINF:-1,Local file
                 file:///etc/hosts
                 """.formatted(upstream.url("/live.ts"), upstream.url("/mpeg2.ts"), upstream.url("/mpeg2-unwatched.ts"),
-                upstream.url("/anamorphic.ts"), upstream.url("/large.ts"), upstream.url("/portrait.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts")));
+                upstream.url("/anamorphic.ts"), upstream.url("/large.ts"), upstream.url("/portrait.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts"),
+                upstream.url("/silent.ts"), upstream.url("/radio.ts"), upstream.url("/two-audio-radio.ts")));
 
         server = TestServer.start(tempDir, """
                 [streaming]
@@ -215,6 +229,82 @@ class StreamingTest {
         String master = server.get(second.get("playlistUrl").getAsString(), viewer).body();
         assertEquals(2, master.lines().filter((line) -> line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")).count(), master);
         stopStream(viewer, second);
+    }
+
+    @Test
+    void leavesTheVideoOutForAudioOnly() throws Exception {
+        // Nothing is transcoded for it, so it doesn't take the transcode privilege
+        JsonObject stream = startStream(viewer, "Live", "audio", null);
+        assertEquals("audio", stream.get("quality").getAsString());
+        assertFalse(stream.get("transcoding").getAsBoolean());
+        assertEquals("h264", stream.get("sourceVideoCodec").getAsString(), "The channel still has video");
+        assertTrue(stream.get("sourceHasAudio").getAsBoolean());
+        assertEquals(128, stream.get("audioBitrateKbps").getAsInt());
+        assertEquals(0, stream.getAsJsonArray("audioTracks").size());
+        assertEquals(List.of("aac"), probe(viewer, stream));
+        stopStream(viewer, stream);
+
+        // Video the browser can't play doesn't need transcoding if it's left out
+        JsonObject mpeg2 = startStream(viewer, "MPEG-2", "audio", null);
+        assertEquals("audio", mpeg2.get("quality").getAsString());
+        assertEquals(List.of("aac"), probe(viewer, mpeg2));
+        stopStream(viewer, mpeg2);
+    }
+
+    @Test
+    void audioOnlyKeepsEveryAudioTrack() throws Exception {
+        // Whether or not Kijkbuis knows the channel has two tracks yet
+        for (int attempt = 0; attempt < 2; attempt++) {
+            JsonObject stream = startStream(viewer, "Two audio tracks", "audio", null);
+            assertEquals("audio", stream.get("quality").getAsString());
+            assertEquals(JsonParser.parseString("""
+                    [{"language": "dut", "audioDescription": false}, {"language": "eng", "audioDescription": true}]
+                    """), stream.get("audioTracks"));
+            assertAudioOnlyMaster(stream);
+            stopStream(viewer, stream);
+        }
+    }
+
+    @Test
+    void channelsWithoutSoundPlayWithTheirVideo() throws Exception {
+        // The first time, Kijkbuis doesn't know the channel has no sound yet, and starts again once ffmpeg says so
+        for (int attempt = 0; attempt < 2; attempt++) {
+            JsonObject stream = startStream(viewer, "Silent", "audio", null);
+            assertEquals("auto", stream.get("quality").getAsString(), "There's nothing to play without the video");
+            assertFalse(stream.get("sourceHasAudio").getAsBoolean());
+            assertEquals(List.of("h264,320,240,1:1"), probe(viewer, stream));
+            stopStream(viewer, stream);
+        }
+
+        JsonObject auto = startStream(viewer, "Silent", null, null);
+        assertFalse(auto.get("sourceHasAudio").getAsBoolean());
+        assertEquals(List.of("h264,320,240,1:1"), probe(viewer, auto));
+        stopStream(viewer, auto);
+    }
+
+    @Test
+    void playsChannelsWithoutVideo() throws Exception {
+        for (String quality : new String[]{null, "audio", "low"}) {
+            JsonObject stream = startStream(transcoder, "Radio", quality, null);
+            // Audio only is what it is, rather than something that was picked
+            assertEquals("audio".equals(quality) ? "audio" : "auto", stream.get("quality").getAsString());
+            assertFalse(stream.get("transcoding").getAsBoolean(), "There's nothing to transcode");
+            assertTrue(stream.get("sourceVideoCodec").isJsonNull());
+            assertTrue(stream.get("sourceHasAudio").getAsBoolean());
+            assertEquals(List.of("aac"), probe(transcoder, stream));
+            stopStream(transcoder, stream);
+        }
+    }
+
+    @Test
+    void channelsWithoutVideoKeepEveryAudioTrack() throws Exception {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            JsonObject stream = startStream(viewer, "Two audio tracks radio", null, null);
+            assertEquals("auto", stream.get("quality").getAsString());
+            assertEquals(2, stream.getAsJsonArray("audioTracks").size());
+            assertAudioOnlyMaster(stream);
+            stopStream(viewer, stream);
+        }
     }
 
     @Test
@@ -479,6 +569,29 @@ class StreamingTest {
         assertEquals(400, server.send("POST", "/api/streams", viewer, "{\"channelId\": \"" + channelIds.get("Live") + "\", \"videoCodecs\": \"h264\"}").statusCode());
         assertEquals(401, server.send("POST", "/api/streams", null, startJson("Live", null, null)).statusCode());
         assertEquals(404, server.send("DELETE", "/api/streams/" + UUID.randomUUID(), viewer, null).statusCode());
+    }
+
+    /**
+     * Checks the playlists of a stream without video that has a Dutch and an English audio track.
+     */
+    private static void assertAudioOnlyMaster(@NotNull JsonObject stream) throws Exception {
+        String playlistUrl = stream.get("playlistUrl").getAsString();
+        String master = server.get(playlistUrl, viewer).body();
+        assertEquals(2, master.lines().filter((line) -> line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")).count(), master);
+        assertTrue(master.contains("LANGUAGE=\"dut\""), master);
+        assertTrue(master.contains("LANGUAGE=\"eng\""), master);
+        // ffmpeg would list each track as a stream, which players take for qualities to switch between by themselves
+        assertEquals(1, master.lines().filter((line) -> line.startsWith("#EXT-X-STREAM-INF")).count(), master);
+        assertEquals(List.of("stream_0.m3u8"), master.lines().filter((line) -> !line.startsWith("#") && !line.isBlank()).toList(),
+                "The stream is the first track, which is also listed as a track");
+
+        String streamPath = playlistUrl.substring(0, playlistUrl.lastIndexOf('/') + 1);
+        for (int rendition = 0; rendition < 2; rendition++) {
+            assertEquals(List.of("aac"), probe(viewer, streamPath + "stream_" + rendition + ".m3u8"));
+            String playlist = server.get(streamPath + "stream_" + rendition + ".m3u8", viewer).body();
+            assertTrue(playlist.contains("#EXT-X-PROGRAM-DATE-TIME:"), "Players line the playlists up by time: " + playlist);
+        }
+        assertEquals(404, server.get(streamPath + "stream_2.m3u8", viewer).statusCode(), "There's no playlist for video");
     }
 
     @NotNull

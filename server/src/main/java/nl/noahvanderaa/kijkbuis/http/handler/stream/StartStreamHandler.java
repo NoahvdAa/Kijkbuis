@@ -30,7 +30,8 @@ import java.util.UUID;
  * The request body contains:
  * <ul>
  *     <li>{@code channelId}: the channel to watch</li>
- *     <li>{@code quality}: optional, auto (the default) or the ID of a transcoding profile</li>
+ *     <li>{@code quality}: optional, auto (the default), audio to leave the video out, or the ID of a transcoding
+ *     profile</li>
  *     <li>{@code videoCodecs}: optional, the video codecs the browser can play, such as ["h264", "hevc"]. Defaults
  *     to only H.264, which every browser can play.</li>
  * </ul>
@@ -56,12 +57,15 @@ public class StartStreamHandler extends AuthenticatedHandler {
         }
 
         KijkbuisConfig.TranscodeProfile profile = null;
+        boolean audioOnly = false;
         if (body.has("quality")) {
             JsonElement quality = body.get("quality");
             if (!quality.isJsonPrimitive() || !quality.getAsJsonPrimitive().isString()) {
                 throw new ApiException(StatusCodes.BAD_REQUEST, "quality must be a string");
             }
-            if (!quality.getAsString().equals(StreamManager.AUTO_QUALITY)) {
+            if (quality.getAsString().equals(StreamManager.AUDIO_QUALITY)) {
+                audioOnly = true;
+            } else if (!quality.getAsString().equals(StreamManager.AUTO_QUALITY)) {
                 profile = this.app.config().transcoding().profile(quality.getAsString());
                 if (profile == null) {
                     throw new ApiException(StatusCodes.BAD_REQUEST, "Unknown quality " + quality.getAsString());
@@ -91,7 +95,7 @@ public class StartStreamHandler extends AuthenticatedHandler {
 
         // The request is authenticated, so it has a session cookie
         String sessionId = SessionManager.idOf(Objects.requireNonNull(AuthCookies.read(exchange, AuthCookies.SESSION)));
-        Stream stream = this.app.streamManager().start(user, sessionId, channel, profile, videoCodecs);
+        Stream stream = this.app.streamManager().start(user, sessionId, channel, profile, audioOnly, videoCodecs);
         Responses.json(exchange, StatusCodes.CREATED, stream.serialize(user));
     }
 

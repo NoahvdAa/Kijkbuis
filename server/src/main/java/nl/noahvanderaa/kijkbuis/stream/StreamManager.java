@@ -34,6 +34,10 @@ import java.util.concurrent.TimeoutException;
 public class StreamManager {
 
     public static final String AUTO_QUALITY = "auto";
+    /**
+     * The quality that leaves the video out. Nothing is transcoded for it, so anyone can pick it.
+     */
+    public static final String AUDIO_QUALITY = "audio";
     private static final Logger LOGGER = LogManager.getLogger(StreamManager.class);
     /**
      * Stream URLs come from playlists, which come from third parties. Only allow network protocols, so a playlist
@@ -84,14 +88,18 @@ public class StreamManager {
      * Channels over the size limit for transcoding are passed through whatever quality the user picked, so the stream's
      * quality is auto then. That goes by the size ffmpeg finds as the stream starts, not by what the channel was like
      * before.
+     * <p>
+     * Likewise, a channel without sound plays with its video when the user picked audio only, at auto quality.
      *
      * @param sessionId      the session starting it, so it's stopped when that session logs out
      * @param profile        the quality the user picked, or null to pick automatically
+     * @param audioOnly      whether the user picked audio only rather than a profile, which leaves the video out
      * @param playableCodecs the video codecs the user's browser can play
      */
     @NotNull
     public Stream start(@NotNull User user, @NotNull String sessionId, @NotNull Channel channel,
-                        @Nullable KijkbuisConfig.TranscodeProfile profile, @NotNull Set<String> playableCodecs) throws InterruptedException {
+                        @Nullable KijkbuisConfig.TranscodeProfile profile, boolean audioOnly,
+                        @NotNull Set<String> playableCodecs) throws InterruptedException {
         if (!SUPPORTED_SCHEMES.contains(scheme(channel.streamUrl()))) {
             throw new ApiException(StatusCodes.BAD_GATEWAY, "This channel's stream URL is not supported");
         }
@@ -100,7 +108,7 @@ public class StreamManager {
             throw new ApiException(StatusCodes.FORBIDDEN, "You are not allowed to change the quality");
         }
 
-        StreamStartingEvent event = this.eventBus.call(new StreamStartingEvent(user, channel, profile != null ? profile.id() : AUTO_QUALITY));
+        StreamStartingEvent event = this.eventBus.call(new StreamStartingEvent(user, channel, profile != null ? profile.id() : audioOnly ? AUDIO_QUALITY : AUTO_QUALITY));
         if (event.isCancelled()) {
             LOGGER.info("A plugin stopped {} from watching {}: {}", user.username(), channel.name(), event.cancelMessage());
             throw new ApiException(StatusCodes.FORBIDDEN, event.cancelMessage());
@@ -108,19 +116,19 @@ public class StreamManager {
 
         Instant deadline = Instant.now().plus(this.config.startupTimeout());
         int maxSourceHeight = this.transcodingConfig.maxSourceHeight();
-        EncodingPlan plan = EncodingPlan.decide(profile, this.sources.get(channel.id()), playableCodecs, mayTranscode, maxSourceHeight);
+        EncodingPlan plan = EncodingPlan.decide(profile, audioOnly, this.sources.get(channel.id()), playableCodecs, mayTranscode, maxSourceHeight);
         if (plan == null) {
             // The channel couldn't be played last time, but it may have another codec or size by now, so start as if
             // it's not known yet, and go by what ffmpeg finds
-            plan = Objects.requireNonNull(EncodingPlan.decide(profile, null, playableCodecs, mayTranscode, maxSourceHeight));
+            plan = Objects.requireNonNull(EncodingPlan.decide(profile, audioOnly, null, playableCodecs, mayTranscode, maxSourceHeight));
         }
 
-        Stream stream = this.launch(user, sessionId, channel, plan);
+        Stream stream = this.launch(user, sessionId, channel, plan, audioOnly);
         try {
             Source source = stream.awaitSource(remaining(deadline));
             this.sources.put(channel.id(), source);
 
-            EncodingPlan actualPlan = EncodingPlan.decide(profile, source, playableCodecs, mayTranscode, maxSourceHeight);
+            EncodingPlan actualPlan = EncodingPlan.decide(profile, audioOnly, source, playableCodecs, mayTranscode, maxSourceHeight);
             if (actualPlan == null) {
                 this.discard(stream.id());
                 throw unplayable(source.video(), mayTranscode);
@@ -129,11 +137,15 @@ public class StreamManager {
                 LOGGER.info("{} has {}, restarting its stream for {} with different settings", channel.name(),
                         source.describe(), user.username());
                 this.discard(stream.id());
-                stream = this.launch(user, sessionId, channel, actualPlan);
+                stream = this.launch(user, sessionId, channel, actualPlan, audioOnly);
             }
-            if (profile != null && actualPlan.profile() == null) {
+            // Channels without video have nothing to transcode, whatever their size
+            if (profile != null && actualPlan.profile() == null && !actualPlan.audioOnly()) {
                 LOGGER.info("{} is too large to transcode, so {} gets it at its own quality rather than {}", channel.name(),
                         user.username(), profile.id());
+            }
+            if (audioOnly && !actualPlan.audioOnly()) {
+                LOGGER.info("{} has no sound, so {} gets it with its video rather than audio only", channel.name(), user.username());
             }
 
             stream.awaitReady(remaining(deadline));
@@ -312,11 +324,15 @@ public class StreamManager {
 
     /**
      * Creates a stream and starts its ffmpeg.
+     *
+     * @param audioOnly whether the user picked audio only
      */
     @NotNull
-    private Stream launch(@NotNull User user, @NotNull String sessionId, @NotNull Channel channel, @NotNull EncodingPlan plan) {
-        // The quality it plays at, which isn't the one the user picked if the channel is too large to transcode
-        String quality = plan.profile() != null ? plan.profile().id() : AUTO_QUALITY;
+    private Stream launch(@NotNull User user, @NotNull String sessionId, @NotNull Channel channel, @NotNull EncodingPlan plan,
+                          boolean audioOnly) {
+        // The quality it plays at, which isn't the one the user picked if the channel is too large to transcode, or
+        // has no sound to play on its own. A channel without video is only audio only if that's what the user picked.
+        String quality = plan.profile() != null ? plan.profile().id() : audioOnly && plan.audioOnly() ? AUDIO_QUALITY : AUTO_QUALITY;
         Stream stream = new Stream(user, sessionId, channel, quality, plan, this.transcodingConfig.maxSourceHeight());
         this.streams.put(stream.id(), stream);
         this.streamsByPlaybackToken.put(stream.playbackToken(), stream);

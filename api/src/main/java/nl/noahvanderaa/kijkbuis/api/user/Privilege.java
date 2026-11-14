@@ -13,7 +13,8 @@ public enum Privilege {
     /**
      * Allows the user to transcode a stream into a different quality or codec.
      * When this privilege is not granted, the user can only watch streams in their original quality and codec,
-     * without any transcoding. If the codec is not supported the user simply cannot watch the stream.
+     * without any transcoding. If the codec is not supported the user simply cannot watch the stream, though they
+     * can still listen to it: audio only doesn't take this privilege.
      */
     TRANSCODE
 }

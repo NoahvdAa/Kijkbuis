@@ -36,7 +36,7 @@ public class KijkbuisConfig {
     private static final ObjectMapper.Factory OBJECT_MAPPER_FACTORY = ObjectMapper.factoryBuilder()
             .defaultNamingScheme(NamingSchemes.LOWER_CASE_DASHED)
             .build();
-    private static final Pattern PROFILE_ID = Pattern.compile("^(?!auto$)[a-z0-9_-]{1,32}$");
+    private static final Pattern PROFILE_ID = Pattern.compile("^(?!(?:auto|audio)$)[a-z0-9_-]{1,32}$");
 
     private ServerConfig server = new ServerConfig();
     private DatabaseConfig database = new DatabaseConfig();
@@ -115,7 +115,7 @@ public class KijkbuisConfig {
         Set<String> profileIds = new HashSet<>();
         for (TranscodeProfile profile : this.transcoding.profiles()) {
             if (!PROFILE_ID.matcher(profile.id()).matches()) {
-                throw new IllegalStateException("Invalid config: transcoding profile IDs may only contain lowercase letters, digits, - and _, and auto is reserved");
+                throw new IllegalStateException("Invalid config: transcoding profile IDs may only contain lowercase letters, digits, - and _, and auto and audio are reserved");
             }
             if (!profileIds.add(profile.id())) {
                 throw new IllegalStateException("Invalid config: there are several transcoding profiles with ID " + profile.id());

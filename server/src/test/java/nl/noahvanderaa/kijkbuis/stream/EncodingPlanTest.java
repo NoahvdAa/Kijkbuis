@@ -4,6 +4,7 @@ import nl.noahvanderaa.kijkbuis.config.KijkbuisConfig;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
@@ -26,53 +27,53 @@ class EncodingPlanTest {
 
     @Test
     void picksPassthroughWhenTheBrowserCanPlayTheCodec() {
-        assertEquals(COPY, EncodingPlan.decide(null, video(H264), Set.of("h264"), false, 0));
-        assertEquals(new EncodingPlan(false, null, false, true), EncodingPlan.decide(null, video(new SourceVideo("hevc", false, 1920, 1080)), Set.of("h264", "hevc"), false, 0));
-        assertEquals(COPY, EncodingPlan.decide(null, video(new SourceVideo("av1", false, 1920, 1080)), Set.of("av1"), false, 0));
+        assertEquals(COPY, EncodingPlan.decide(null, false, video(H264), Set.of("h264"), false, 0));
+        assertEquals(new EncodingPlan(false, null, false, true), EncodingPlan.decide(null, false, video(new SourceVideo("hevc", false, 1920, 1080)), Set.of("h264", "hevc"), false, 0));
+        assertEquals(COPY, EncodingPlan.decide(null, false, video(new SourceVideo("av1", false, 1920, 1080)), Set.of("av1"), false, 0));
     }
 
     @Test
     void passesThroughWhenTheCodecIsUnknown() {
         // The stream is restarted once ffmpeg reports the codec, if needed
-        assertEquals(COPY, EncodingPlan.decide(null, null, Set.of("h264"), false, 0));
+        assertEquals(COPY, EncodingPlan.decide(null, false, null, Set.of("h264"), false, 0));
     }
 
     @Test
     void transcodesCodecsTheBrowserCannotPlay() {
-        assertEquals(TRANSCODE_SOURCE, EncodingPlan.decide(null, video(new SourceVideo("hevc", false, 1920, 1080)), Set.of("h264"), true, 0));
-        assertEquals(TRANSCODE_SOURCE, EncodingPlan.decide(null, video(new SourceVideo("mpeg2video", false, 720, 576)), Set.of("h264", "mpeg2video"), true, 0), "Browsers can't decode MPEG-2 from fMP4");
-        assertNull(EncodingPlan.decide(null, video(new SourceVideo("hevc", false, 1920, 1080)), Set.of("h264"), false, 0), "Users without the transcode privilege can't watch it");
+        assertEquals(TRANSCODE_SOURCE, EncodingPlan.decide(null, false, video(new SourceVideo("hevc", false, 1920, 1080)), Set.of("h264"), true, 0));
+        assertEquals(TRANSCODE_SOURCE, EncodingPlan.decide(null, false, video(new SourceVideo("mpeg2video", false, 720, 576)), Set.of("h264", "mpeg2video"), true, 0), "Browsers can't decode MPEG-2 from fMP4");
+        assertNull(EncodingPlan.decide(null, false, video(new SourceVideo("hevc", false, 1920, 1080)), Set.of("h264"), false, 0), "Users without the transcode privilege can't watch it");
     }
 
     @Test
     void deinterlacesInterlacedVideoForUsersWhoMayTranscode() {
-        assertEquals(DEINTERLACE_SOURCE, EncodingPlan.decide(null, video(INTERLACED_H264), Set.of("h264"), true, 0));
-        assertEquals(DEINTERLACE_SOURCE, EncodingPlan.decide(null, video(new SourceVideo("mpeg2video", true, 720, 576)), Set.of("h264"), true, 0));
-        assertEquals(COPY, EncodingPlan.decide(null, video(INTERLACED_H264), Set.of("h264"), false, 0), "Browsers can still play it, just not nicely");
-        assertNull(EncodingPlan.decide(null, video(new SourceVideo("mpeg2video", true, 720, 576)), Set.of("h264"), false, 0));
+        assertEquals(DEINTERLACE_SOURCE, EncodingPlan.decide(null, false, video(INTERLACED_H264), Set.of("h264"), true, 0));
+        assertEquals(DEINTERLACE_SOURCE, EncodingPlan.decide(null, false, video(new SourceVideo("mpeg2video", true, 720, 576)), Set.of("h264"), true, 0));
+        assertEquals(COPY, EncodingPlan.decide(null, false, video(INTERLACED_H264), Set.of("h264"), false, 0), "Browsers can still play it, just not nicely");
+        assertNull(EncodingPlan.decide(null, false, video(new SourceVideo("mpeg2video", true, 720, 576)), Set.of("h264"), false, 0));
     }
 
     @Test
     void transcodesToPickedQuality() {
-        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, video(H264), Set.of("h264"), true, 0));
-        assertEquals(new EncodingPlan(true, LOW, true, false), EncodingPlan.decide(LOW, video(INTERLACED_H264), Set.of("h264"), true, 0));
+        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, false, video(H264), Set.of("h264"), true, 0));
+        assertEquals(new EncodingPlan(true, LOW, true, false), EncodingPlan.decide(LOW, false, video(INTERLACED_H264), Set.of("h264"), true, 0));
     }
 
     @Test
     void neverTranscodesChannelsOverTheSizeLimit() {
         Source uhd = video(new SourceVideo("hevc", false, 3840, 2160));
-        assertEquals(new EncodingPlan(false, null, false, true), EncodingPlan.decide(LOW, uhd, Set.of("h264", "hevc"), true, 1080),
+        assertEquals(new EncodingPlan(false, null, false, true), EncodingPlan.decide(LOW, false, uhd, Set.of("h264", "hevc"), true, 1080),
                 "It plays at its own quality, whatever the user picked");
-        assertNull(EncodingPlan.decide(null, uhd, Set.of("h264"), true, 1080), "Browsers that can't play it would need it transcoded");
-        assertNull(EncodingPlan.decide(LOW, uhd, Set.of("h264"), true, 1080));
-        assertEquals(COPY, EncodingPlan.decide(null, video(new SourceVideo("h264", true, 3840, 2160)), Set.of("h264"), true, 1080),
+        assertNull(EncodingPlan.decide(null, false, uhd, Set.of("h264"), true, 1080), "Browsers that can't play it would need it transcoded");
+        assertNull(EncodingPlan.decide(LOW, false, uhd, Set.of("h264"), true, 1080));
+        assertEquals(COPY, EncodingPlan.decide(null, false, video(new SourceVideo("h264", true, 3840, 2160)), Set.of("h264"), true, 1080),
                 "It's not deinterlaced either");
 
-        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, video(H264), Set.of("h264"), true, 1080),
+        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, false, video(H264), Set.of("h264"), true, 1080),
                 "A channel the size of the limit is transcoded");
-        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, uhd, Set.of("h264", "hevc"), true, 2160));
-        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, uhd, Set.of("h264", "hevc"), true, 0), "0 is no limit");
-        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, null, Set.of("h264"), true, 1080),
+        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, false, uhd, Set.of("h264", "hevc"), true, 2160));
+        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, false, uhd, Set.of("h264", "hevc"), true, 0), "0 is no limit");
+        assertEquals(new EncodingPlan(true, LOW, false, false), EncodingPlan.decide(LOW, false, null, Set.of("h264"), true, 1080),
                 "The stream is restarted once ffmpeg reports the size, if needed");
     }
 
@@ -109,20 +110,52 @@ class EncodingPlanTest {
 
     @Test
     void givesAudioTracksPlaylistsOfTheirOwnWhenThereAreSeveral() {
-        assertEquals(new EncodingPlan(false, null, false, false, List.of(DUTCH, ENGLISH_DESCRIPTION)),
-                EncodingPlan.decide(null, new Source(H264, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), false, 0));
-        assertEquals(new EncodingPlan(true, LOW, false, false, List.of(DUTCH, ENGLISH_DESCRIPTION)),
-                EncodingPlan.decide(LOW, new Source(H264, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), true, 0), "Whatever the quality");
+        assertEquals(new EncodingPlan(false, false, null, false, false, List.of(DUTCH, ENGLISH_DESCRIPTION)),
+                EncodingPlan.decide(null, false, new Source(H264, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), false, 0));
+        assertEquals(new EncodingPlan(false, true, LOW, false, false, List.of(DUTCH, ENGLISH_DESCRIPTION)),
+                EncodingPlan.decide(LOW, false, new Source(H264, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), true, 0), "Whatever the quality");
 
-        assertEquals(COPY, EncodingPlan.decide(null, new Source(H264, List.of(DUTCH)), Set.of("h264"), false, 0), "One track goes in with the video");
-        assertEquals(COPY, EncodingPlan.decide(null, new Source(H264, List.of()), Set.of("h264"), false, 0));
-        assertEquals(COPY, EncodingPlan.decide(null, new Source(null, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), false, 0),
-                "Without video, players would take audio playlists for qualities");
-        assertEquals(COPY, EncodingPlan.decide(null, new Source(H264, List.of(DUTCH, new SourceAudio(1, "none", null, false))), Set.of("h264"), false, 0),
+        assertEquals(COPY, EncodingPlan.decide(null, false, new Source(H264, List.of(DUTCH)), Set.of("h264"), false, 0), "One track goes in with the video");
+        assertEquals(COPY, EncodingPlan.decide(null, false, new Source(H264, List.of()), Set.of("h264"), false, 0));
+        assertEquals(COPY, EncodingPlan.decide(null, false, new Source(H264, List.of(DUTCH, new SourceAudio(1, "none", null, false))), Set.of("h264"), false, 0),
                 "Tracks ffmpeg can't decode are left out");
 
         List<SourceAudio> many = IntStream.range(0, 10).mapToObj((index) -> new SourceAudio(index, "aac", null, false)).toList();
-        assertEquals(many.subList(0, 8), EncodingPlan.decide(null, new Source(H264, many), Set.of("h264"), false, 0).audioTracks());
+        assertEquals(many.subList(0, 8), EncodingPlan.decide(null, false, new Source(H264, many), Set.of("h264"), false, 0).audioTracks());
+    }
+
+    @Test
+    void leavesTheVideoOutForAudioOnly() {
+        assertEquals(EncodingPlan.audioOnly(List.of()), EncodingPlan.decide(null, true, video(H264), Set.of("h264"), false, 0));
+        assertEquals(EncodingPlan.audioOnly(List.of(DUTCH, ENGLISH_DESCRIPTION)),
+                EncodingPlan.decide(null, true, new Source(H264, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), false, 0),
+                "The viewer can still switch between the audio tracks");
+        assertEquals(EncodingPlan.audioOnly(List.of()), EncodingPlan.decide(null, true, null, Set.of("h264"), false, 0),
+                "The stream is restarted once ffmpeg reports what the channel has, if needed");
+        assertEquals(EncodingPlan.audioOnly(List.of()),
+                EncodingPlan.decide(null, true, video(new SourceVideo("mpeg2video", true, 720, 576)), Set.of("h264"), false, 0),
+                "Video the browser can't play doesn't matter if it's left out");
+        assertEquals(EncodingPlan.audioOnly(List.of()), EncodingPlan.decide(null, true, video(new SourceVideo("hevc", false, 3840, 2160)), Set.of("h264"), true, 1080),
+                "Neither does its size");
+    }
+
+    @Test
+    void playsChannelsWithoutSoundWithTheirVideo() {
+        assertEquals(COPY, EncodingPlan.decide(null, true, new Source(H264, List.of()), Set.of("h264"), false, 0));
+        assertEquals(COPY, EncodingPlan.decide(null, true, new Source(H264, List.of(new SourceAudio(0, "none", null, false))), Set.of("h264"), false, 0),
+                "Sound ffmpeg can't decode is no sound");
+        assertEquals(TRANSCODE_SOURCE, EncodingPlan.decide(null, true, new Source(new SourceVideo("mpeg2video", false, 720, 576), List.of()), Set.of("h264"), true, 0));
+        assertNull(EncodingPlan.decide(null, true, new Source(new SourceVideo("mpeg2video", false, 720, 576), List.of()), Set.of("h264"), false, 0));
+    }
+
+    @Test
+    void channelsWithoutVideoAreAudioOnlyWhateverThePick() {
+        Source radio = new Source(null, List.of(DUTCH));
+        assertEquals(EncodingPlan.audioOnly(List.of()), EncodingPlan.decide(null, false, radio, Set.of("h264"), false, 0));
+        assertEquals(EncodingPlan.audioOnly(List.of()), EncodingPlan.decide(null, true, radio, Set.of("h264"), false, 0));
+        assertEquals(EncodingPlan.audioOnly(List.of()), EncodingPlan.decide(LOW, false, radio, Set.of("h264"), true, 0), "There's nothing to transcode");
+        assertEquals(EncodingPlan.audioOnly(List.of(DUTCH, ENGLISH_DESCRIPTION)),
+                EncodingPlan.decide(null, false, new Source(null, List.of(DUTCH, ENGLISH_DESCRIPTION)), Set.of("h264"), false, 0));
     }
 
     @Test
@@ -168,10 +201,9 @@ class EncodingPlanTest {
     void buildsAPlaylistPerAudioTrack() {
         URI ingest = URI.create("http://127.0.0.1:1234/stream/token/");
         List<String> command = FfmpegCommand.build("ffmpeg", "veryfast", true, "http://upstream.example/1.ts", ingest,
-                new EncodingPlan(false, null, false, false, List.of(DUTCH, new SourceAudio(2, "mp2", null, true))));
+                new EncodingPlan(false, false, null, false, false, List.of(DUTCH, new SourceAudio(2, "mp2", null, true))));
 
-        assertEquals(List.of("0:v:0", "0:a:0", "0:a:2"), IntStream.range(0, command.size()).filter((i) -> command.get(i).equals("-map"))
-                .mapToObj((i) -> command.get(i + 1)).toList(), "The tracks are known to be there");
+        assertEquals(List.of("0:v:0", "0:a:0", "0:a:2"), maps(command), "The tracks are known to be there");
         assertEquals("v:0,agroup:audio a:0,agroup:audio,language:dut,default:yes a:1,agroup:audio", command.get(command.indexOf("-var_stream_map") + 1));
         assertEquals("live.m3u8", command.get(command.indexOf("-master_pl_name") + 1));
         assertEquals("delete_segments+program_date_time", command.get(command.indexOf("-hls_flags") + 1),
@@ -181,9 +213,42 @@ class EncodingPlanTest {
         assertEquals("stream_2.m3u8", FfmpegCommand.renditionPlaylist(2));
 
         List<String> oneTrack = FfmpegCommand.build("ffmpeg", "veryfast", true, "http://upstream.example/1.ts", ingest, COPY);
-        assertEquals(List.of("0:v:0?", "0:a:0?"), IntStream.range(0, oneTrack.size()).filter((i) -> oneTrack.get(i).equals("-map"))
-                .mapToObj((i) -> oneTrack.get(i + 1)).toList());
+        assertEquals(List.of("0:v:0?", "0:a:0?"), maps(oneTrack));
         assertFalse(oneTrack.contains("-var_stream_map"));
+    }
+
+    @Test
+    void buildsAudioOnlyCommands() {
+        URI ingest = URI.create("http://127.0.0.1:1234/stream/token/");
+
+        List<String> oneTrack = FfmpegCommand.build("ffmpeg", "veryfast", true, "http://upstream.example/1.ts", ingest, EncodingPlan.audioOnly(List.of()));
+        assertEquals(List.of("0:a:0"), maps(oneTrack), "Without a question mark, since ffmpeg picks the video by itself if nothing is mapped");
+        assertFalse(oneTrack.contains("-c:v"));
+        assertFalse(oneTrack.contains("-var_stream_map"));
+        assertEquals("aac", oneTrack.get(oneTrack.indexOf("-c:a") + 1));
+        assertEquals("http://127.0.0.1:1234/stream/token/live.m3u8", oneTrack.getLast());
+
+        List<String> twoTracks = FfmpegCommand.build("ffmpeg", "veryfast", true, "http://upstream.example/1.ts", ingest,
+                EncodingPlan.audioOnly(List.of(DUTCH, new SourceAudio(2, "mp2", null, true))));
+        assertEquals(List.of("0:a:0", "0:a:2"), maps(twoTracks));
+        assertFalse(twoTracks.contains("-c:v"));
+        assertEquals("a:0 a:1", twoTracks.get(twoTracks.indexOf("-var_stream_map") + 1));
+        assertFalse(twoTracks.contains("-master_pl_name"), "Kijkbuis writes that one itself");
+        assertEquals("delete_segments+program_date_time", twoTracks.get(twoTracks.indexOf("-hls_flags") + 1));
+        assertEquals("http://127.0.0.1:1234/stream/token/stream_%v.m3u8", twoTracks.getLast());
+    }
+
+    @Test
+    void tiesAudioOnlyTracksTogether() {
+        assertEquals("""
+                #EXTM3U
+                #EXT-X-VERSION:7
+                #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="audio_0",DEFAULT=YES,LANGUAGE="dut",CHANNELS="2",URI="stream_0.m3u8"
+                #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="audio_1",DEFAULT=NO,CHANNELS="2",URI="stream_1.m3u8"
+                #EXT-X-STREAM-INF:BANDWIDTH=140800,CODECS="mp4a.40.2",AUDIO="audio"
+                stream_0.m3u8
+                """, new String(AudioOnlyPlaylist.build(List.of(DUTCH, new SourceAudio(2, "mp2", null, true))), StandardCharsets.UTF_8),
+                "One stream, so players don't take the tracks for qualities");
     }
 
     @Test
@@ -195,6 +260,13 @@ class EncodingPlanTest {
 
         List<String> singleRate = FfmpegCommand.build("ffmpeg", "veryfast", false, "http://upstream.example/1.ts", ingest, new EncodingPlan(true, LOW, true, false));
         assertTrue(singleRate.get(singleRate.indexOf("-vf") + 1).startsWith("bwdif=mode=send_frame:deint=interlaced,scale="));
+    }
+
+    /**
+     * @return what the command maps, in order
+     */
+    private static List<String> maps(List<String> command) {
+        return IntStream.range(0, command.size()).filter((i) -> command.get(i).equals("-map")).mapToObj((i) -> command.get(i + 1)).toList();
     }
 
     /**

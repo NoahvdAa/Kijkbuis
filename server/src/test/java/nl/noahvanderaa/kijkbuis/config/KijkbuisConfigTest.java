@@ -104,7 +104,11 @@ class KijkbuisConfigTest {
                 bitrate-kbps = 3000
                 """);
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> KijkbuisConfig.load(path));
-        assertTrue(ex.getMessage().contains("auto is reserved"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("auto and audio are reserved"), ex.getMessage());
+
+        Files.writeString(path, Files.readString(path).replace("\"auto\"", "\"audio\""));
+        ex = assertThrows(IllegalStateException.class, () -> KijkbuisConfig.load(path));
+        assertTrue(ex.getMessage().contains("auto and audio are reserved"), ex.getMessage());
     }
 
     @Test

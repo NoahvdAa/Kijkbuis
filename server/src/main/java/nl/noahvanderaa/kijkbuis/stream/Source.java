@@ -18,6 +18,13 @@ record Source(@Nullable SourceVideo video, @NotNull List<SourceAudio> audio) {
     }
 
     /**
+     * @return whether the channel has sound, which is when ffmpeg can decode any of its audio tracks
+     */
+    boolean hasAudio() {
+        return this.audio.stream().anyMatch(SourceAudio::playable);
+    }
+
+    /**
      * @return a short description for logs
      */
     @NotNull

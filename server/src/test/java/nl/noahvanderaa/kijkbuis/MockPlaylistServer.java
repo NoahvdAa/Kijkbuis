@@ -69,28 +69,36 @@ final class MockPlaylistServer implements AutoCloseable {
      *
      * @param dir      the directory to keep the sample in
      * @param seconds  how long the sample is
-     * @param video    the lavfi source of the video, such as testsrc2=size=320x240:rate=25
+     * @param video    the lavfi source of the video, such as testsrc2=size=320x240:rate=25, or null for a sample without
+     *                 video
      * @param encoding ffmpeg's options to encode the sample with
      */
-    void serveSample(@NotNull Path dir, int seconds, @NotNull String path, @NotNull String video, @NotNull String... encoding) throws Exception {
+    void serveSample(@NotNull Path dir, int seconds, @NotNull String path, @Nullable String video, @NotNull String... encoding) throws Exception {
         this.serveSample(dir, seconds, path, video, 1, encoding);
     }
 
     /**
      * Generates a sample with several audio tracks, each a tone of its own, and serves it like a live channel.
      *
-     * @param audioTracks how many audio tracks the sample has
+     * @param audioTracks how many audio tracks the sample has, which can be none
      * @see #serveSample(Path, int, String, String, String...)
      */
-    void serveSample(@NotNull Path dir, int seconds, @NotNull String path, @NotNull String video, int audioTracks, @NotNull String... encoding) throws Exception {
+    void serveSample(@NotNull Path dir, int seconds, @NotNull String path, @Nullable String video, int audioTracks, @NotNull String... encoding) throws Exception {
         Path sample = dir.resolve(path.substring(1));
-        List<String> command = new ArrayList<>(List.of("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", video));
+        List<String> command = new ArrayList<>(List.of("ffmpeg", "-y", "-hide_banner", "-loglevel", "error"));
         for (int track = 0; track < audioTracks; track++) {
             command.addAll(List.of("-f", "lavfi", "-i", "sine=frequency=" + (1000 + track * 500) + ":sample_rate=48000"));
         }
-        command.addAll(List.of("-t", String.valueOf(seconds), "-map", "0:v"));
+        if (video != null) {
+            command.addAll(List.of("-f", "lavfi", "-i", video));
+        }
+        command.add("-t");
+        command.add(String.valueOf(seconds));
+        if (video != null) {
+            command.addAll(List.of("-map", audioTracks + ":v"));
+        }
         for (int track = 0; track < audioTracks; track++) {
-            command.addAll(List.of("-map", (track + 1) + ":a"));
+            command.addAll(List.of("-map", track + ":a"));
         }
         command.addAll(List.of(encoding));
         command.addAll(List.of("-f", "mpegts", sample.toString()));

@@ -4,11 +4,16 @@ import type {Channel} from '#/lib/types';
 /**
  * A channel's logo, or its initials when it has none or the logo can't be loaded.
  */
-export function ChannelLogo({channel, className = ''}: {
+export function ChannelLogo({channel, className = '', logoOnly = false}: {
     channel: Pick<Channel, 'name' | 'logoUrl'>,
-    className?: string
+    className?: string,
+    /** Whether to show nothing rather than the initials */
+    logoOnly?: boolean
 }) {
     const [failed, setFailed] = useState(false);
+    if (logoOnly && (!channel.logoUrl || failed)) {
+        return null;
+    }
 
     return <div className={`grid aspect-square place-items-center overflow-hidden bg-raised ${className}`}>
         {channel.logoUrl && !failed

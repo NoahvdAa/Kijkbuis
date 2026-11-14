@@ -79,7 +79,7 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
      * @param owner           the user watching the stream
      * @param sessionId       the session that started it, see {@link nl.noahvanderaa.kijkbuis.auth.SessionManager#idOf}
      * @param channel         the channel being watched
-     * @param quality         the quality it plays at, which is auto or a transcoding profile ID
+     * @param quality         the quality it plays at, which is auto, audio or a transcoding profile ID
      * @param plan            how the video is encoded
      * @param maxSourceHeight the largest channel that's transcoded, see
      *                        {@link nl.noahvanderaa.kijkbuis.config.KijkbuisConfig.TranscodingConfig#maxSourceHeight()}
@@ -100,6 +100,10 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
      * @param command the ffmpeg command, see {@link FfmpegCommand}
      */
     void start(@NotNull List<String> command) throws IOException {
+        if (this.plan.audioOnly() && !this.plan.audioTracks().isEmpty()) {
+            // ffmpeg doesn't tie the audio tracks' playlists together in a way that works without video
+            this.files.put(PLAYLIST, AudioOnlyPlaylist.build(this.plan.audioTracks()));
+        }
         this.process = new ProcessBuilder(command)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .start();
@@ -150,8 +154,9 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
 
     /**
      * @return whether the player can start, which is when every playlist lists a segment. ffmpeg only lists segments
-     * once they're fully uploaded. With an audio playlist per track, that's the playlists of the video and each audio
-     * track, and the playlist that ties them together, which ffmpeg writes once they all have a segment.
+     * once they're fully uploaded. With an audio playlist per track, that's the playlists of the video, if any, and
+     * each audio track, and the playlist that ties them together. ffmpeg writes that one once they all have a segment,
+     * unless there's no video: then it's there from the start.
      */
     private boolean playable() {
         if (this.plan.audioTracks().isEmpty()) {
@@ -160,7 +165,7 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         if (!this.files.containsKey(PLAYLIST)) {
             return false;
         }
-        for (int rendition = 0; rendition <= this.plan.audioTracks().size(); rendition++) {
+        for (int rendition = 0; rendition < this.plan.renditions(); rendition++) {
             if (!this.listsSegment(FfmpegCommand.renditionPlaylist(rendition))) {
                 return false;
             }
@@ -343,16 +348,19 @@ public class Stream implements nl.noahvanderaa.kijkbuis.api.stream.Stream, KBSer
         obj.addProperty("playlistUrl", "/live/" + this.playbackToken + "/" + PLAYLIST);
         obj.addProperty("quality", this.quality);
         obj.addProperty("transcoding", this.plan.transcode());
-        SourceVideo source = this.source.isDone() && !this.source.isCompletedExceptionally()
-                ? this.source.join().video()
-                : null;
-        obj.addProperty("sourceVideoCodec", source != null ? source.codec() : null);
-        obj.addProperty("sourceInterlaced", source != null && source.interlaced());
+        Source source = this.source.isDone() && !this.source.isCompletedExceptionally() ? this.source.join() : null;
+        SourceVideo video = source != null ? source.video() : null;
+        obj.addProperty("sourceVideoCodec", video != null ? video.codec() : null);
+        obj.addProperty("sourceInterlaced", video != null && video.interlaced());
         // The size it's shown at, so non-square pixels are accounted for
-        obj.addProperty("sourceWidth", source != null && source.width() > 0 ? source.width() : null);
-        obj.addProperty("sourceHeight", source != null && source.height() > 0 ? source.height() : null);
+        obj.addProperty("sourceWidth", video != null && video.width() > 0 ? video.width() : null);
+        obj.addProperty("sourceHeight", video != null && video.height() > 0 ? video.height() : null);
         // Whether the channel is over the size limit for transcoding, so it only plays at its own quality
-        obj.addProperty("tooLargeToTranscode", source != null && !source.fitsIn(this.maxSourceHeight));
+        obj.addProperty("tooLargeToTranscode", video != null && !video.fitsIn(this.maxSourceHeight));
+        // Channels with both video and sound can play audio only
+        obj.addProperty("sourceHasAudio", source != null && source.hasAudio());
+        // What the sound takes, which is all an audio only stream takes
+        obj.addProperty("audioBitrateKbps", FfmpegCommand.AUDIO_BITRATE_KBPS);
         // The tracks the viewer can switch between, in the order of the playlist's audio tracks. Empty if there's
         // nothing to switch between.
         JsonArray audioTracks = new JsonArray();

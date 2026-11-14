@@ -1,6 +1,7 @@
 import Hls from 'hls.js';
 import {type ReactNode, type RefObject, useEffect, useRef, useState} from 'react';
 import {codecName} from '#/lib/media';
+import {AUDIO_QUALITY} from '#/lib/profiles';
 import type {Channel, StreamInfo} from '#/lib/types';
 
 /**
@@ -109,14 +110,16 @@ export function PlayerStats({video, container, debug, channel, stream, status, o
                 <Row label="Server">
                     {stream.transcoding
                         ? `Transcoding to H.264${stream.sourceInterlaced ? ', deinterlacing' : ''}`
+                        : stream.sourceVideoCodec === null || stream.quality === AUDIO_QUALITY ? 'Audio only'
                         : `Passing video through${stream.sourceInterlaced ? ' (interlaced)' : ''}${stream.tooLargeToTranscode ? ' · too large to transcode' : ''}`}
                 </Row>
                 <Row label="Source">
                     {[
-                        stream.sourceVideoCodec && codecName(stream.sourceVideoCodec),
+                        stream.sourceVideoCodec ? codecName(stream.sourceVideoCodec) : 'no video',
                         stream.sourceWidth && stream.sourceHeight && `${stream.sourceWidth}×${stream.sourceHeight}`,
                         stream.sourceInterlaced && 'interlaced',
-                    ].filter(Boolean).join(' · ') || 'unknown'}
+                        !stream.sourceHasAudio && 'no sound',
+                    ].filter(Boolean).join(' · ')}
                 </Row>
             </>}
             {element && <>

@@ -80,7 +80,7 @@ const response = await fetch('/api/streams', {
 });
 const stream = await response.json();
 // { id, channelId, playlistUrl, quality, transcoding, sourceVideoCodec, sourceInterlaced, sourceWidth, sourceHeight,
-//   tooLargeToTranscode, audioTracks }
+//   tooLargeToTranscode, sourceHasAudio, audioBitrateKbps, audioTracks }
 ```
 
 The request only returns once the first segment is ready, which usually takes a few seconds. Show a loading state in
@@ -130,7 +130,7 @@ The playlist URL contains a secret token and works without the session cookie. S
 
 | Status | Meaning                                                                                                   |
 |--------|-----------------------------------------------------------------------------------------------------------|
-| 403    | The user picked a quality without the `transcode` privilege                                               |
+| 403    | The user picked a profile without the `transcode` privilege                                               |
 | 404    | The channel doesn't exist                                                                                 |
 | 422    | The browser can't play the channel's codec, and the user may not transcode or the channel is too large to |
 | 502    | The channel couldn't be started, e.g. because the provider is down                                        |
@@ -154,6 +154,20 @@ The `error` message is fine to show as is.
   2. Switch the player over to it.
   3. Stop the old stream.
 
+### Audio only
+
+`quality: 'audio'` leaves the video out, for listening on a slow or metered connection. Nothing is transcoded for it,
+so it doesn't take the `transcode` privilege, and it works for channels whose video the browser can't play.
+
+- Only offer it when the channel has both video and sound: `sourceVideoCodec !== null && sourceHasAudio`.
+- A channel without sound plays with its video anyway. Its `quality` in the response is `auto` then, like for a
+  channel that's too large to transcode.
+- A channel without video (`sourceVideoCodec` is `null`), such as a radio channel, is audio only whatever was asked
+  for, so there's no quality to pick. Its `quality` is only `audio` if that's what was asked for.
+- `audioBitrateKbps` is what the sound of any stream takes, which is all an audio only stream takes.
+- There's no picture, so show something in its place, such as the channel's name.
+- The audio tracks can be switched like those of any other stream.
+
 ### Picking an audio track
 
 Some channels have several audio tracks, such as other languages or audio description. `audioTracks` lists the ones
@@ -163,8 +177,7 @@ the viewer can switch between, as `{ language, audioDescription }`:
   `new Intl.DisplayNames(['en'], { type: 'language' }).of(code)` turns it into a name. `qaa` is often the original
   language.
 - `audioDescription` is whether the track describes what's on screen, for people who can't see it.
-- The list is empty when there's nothing to switch between: channels with one audio track, and channels without video,
-  which only play their first track.
+- The list is empty when there's nothing to switch between, which is for channels with one audio track or none.
 
 Each track has its own playlist, so switching doesn't need a new stream. The tracks are in the playlist's audio group
 in the same order: set `hls.audioTrack` to the track's index, or enable it in `video.audioTracks` where the browser
@@ -177,7 +190,7 @@ with the first track too, so switch it again if the viewer picked another.
 Some channels have CEA-608 captions (closed captions) inside their video. They come along in the video when it's passed
 through or transcoded, so there's nothing about them in the API: not even ffmpeg lists them until it decodes some. Only
 the player can tell, once it finds text in there. It can take a while, on channels that only have captions for some
-programmes.
+programmes. An audio only stream has none, since they're left out with the video.
 
 hls.js reads them, but only adds them to a text track of its own after appending video on its own, which never happens
 for streams with their audio in the same segments. Have it hand them over instead, and put them in your own track:

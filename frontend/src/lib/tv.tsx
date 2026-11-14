@@ -23,7 +23,7 @@ export type Tile = {
     muted: boolean
     /** From 0 to 1 */
     volume: number
-    /** {@link AUTO_QUALITY} or the ID of a transcoding profile. It stays when the screen changes channels. */
+    /** {@link AUTO_QUALITY}, audio only or the ID of a transcoding profile. It stays when the screen changes channels. */
     quality: string
     /** Whether the screen shows the channel's captions, if it has any. It stays when the screen changes channels. */
     captions: boolean

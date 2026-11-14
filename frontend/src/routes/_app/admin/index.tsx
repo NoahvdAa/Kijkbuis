@@ -4,7 +4,7 @@ import {api} from '#/lib/api';
 import {formatBytes, playlistStatus, useAction, useReloadEvery} from '#/lib/admin';
 import {loadPluginSections} from '#/lib/plugins';
 import {codecName} from '#/lib/media';
-import {AUTO_QUALITY, useProfiles} from '#/lib/profiles';
+import {qualityName, useProfiles} from '#/lib/profiles';
 import {formatAgo, formatDuration, useNow} from '#/lib/time';
 import type {ActiveStream, Playlist, Profile} from '#/lib/types';
 import {AdminSection, Badge, ErrorText, StatusLight} from '#/components/admin/AdminParts';
@@ -60,7 +60,7 @@ function OverviewPage() {
 function StreamCard({stream, profiles, now}: { stream: ActiveStream, profiles: Profile[], now: number }) {
     const stopStream = useCallback(() => api(`/api/streams/${stream.id}`, {method: 'DELETE'}), [stream.id]);
     const stop = useAction(stopStream);
-    const quality = stream.quality === AUTO_QUALITY ? 'Auto' : profiles.find((profile) => profile.id === stream.quality)?.name ?? stream.quality;
+    const quality = qualityName(stream.quality, profiles);
 
     return <div className="flex gap-4 border border-line p-4">
         <ChannelLogo channel={{name: stream.channelName, logoUrl: stream.channelLogoUrl}} className="size-12 shrink-0"/>

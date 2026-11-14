@@ -43,7 +43,7 @@ public final class StreamStartingEvent extends Event implements Cancellable {
     }
 
     /**
-     * @return the quality they picked: auto, or the ID of a transcoding profile
+     * @return the quality they picked: auto, audio for audio only, or the ID of a transcoding profile
      */
     @NotNull
     public String quality() {

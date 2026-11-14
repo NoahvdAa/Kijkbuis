@@ -9,11 +9,13 @@ import {
     toggleFullscreen,
     useFullscreenElement
 } from '#/lib/media';
-import {AUTO_QUALITY} from '#/lib/profiles';
+import {AUDIO_QUALITY, AUTO_QUALITY} from '#/lib/profiles';
 import {type Tile, useTv} from '#/lib/tv';
 import type {Channel, Profile, StreamInfo} from '#/lib/types';
 import {AudioPicker} from './AudioPicker';
 import {CaptionsPicker} from './CaptionsPicker';
+import {ChannelLogo} from './ChannelLogo';
+import {EpgImage} from './EpgImage';
 import {
     CaptionsIcon,
     CaptionsOffIcon,
@@ -62,7 +64,7 @@ type PlayerProps = {
     tvAwake: boolean
     /** Whether this is the screen the keyboard controls, which is always the case without multiview */
     active: boolean
-    /** The qualities the user can pick from, none if they may not */
+    /** The qualities the user can transcode to, none if they may not */
     profiles: Profile[]
     /** Which of the screen's menus is open, if any: quality, audio or captions */
     openMenu: string | null
@@ -102,6 +104,11 @@ export function Player({
     const setQualityOpen = useCallback((open: boolean) => onMenuOpenChange('quality', open), [onMenuOpenChange]);
     const setAudioOpen = useCallback((open: boolean) => onMenuOpenChange('audio', open), [onMenuOpenChange]);
     const setCaptionsOpen = useCallback((open: boolean) => onMenuOpenChange('captions', open), [onMenuOpenChange]);
+    const playing = stream.status === 'playing' ? stream.stream : null;
+    // Whether the channel has video, which is only known once it plays
+    const hasVideo = playing === null || playing.sourceVideoCodec !== null;
+    // Whether what plays has no picture: the screen is set to audio only, or the channel has no video
+    const audioOnly = playing !== null && (playing.quality === AUDIO_QUALITY || !hasVideo);
 
     // Which audio track plays, for channels with several. It stays when the quality changes, which starts a new
     // stream of the same channel, and goes back to the first for a new channel.
@@ -408,7 +415,7 @@ export function Player({
         />
 
         <Status stream={stream} channel={channel} starting={playback === 'starting'} stalled={stalled}
-                onRetry={restart}/>
+                audioOnly={audioOnly} onRetry={restart}/>
 
         {channel && !pip && <InfoBanner channel={channel} visible={showBanner} raised={showControls}/>}
 
@@ -487,7 +494,8 @@ export function Player({
                         <span className="normal-case tracking-normal text-muted"> · {channel.now.title}</span>}
                 </button>
 
-                {captionSets.length === 1 && <ControlButton
+                {/* Captions are inside the video, so there are none without it */}
+                {captionSets.length === 1 && !audioOnly && <ControlButton
                     label="Captions (c)"
                     pressed={tile.captions}
                     onClick={() => setCaptions(tile.id, !tile.captions)}
@@ -495,7 +503,7 @@ export function Player({
                     {tile.captions ? <CaptionsIcon/> : <CaptionsOffIcon/>}
                 </ControlButton>}
 
-                {captionSets.length > 1 && <CaptionsPicker
+                {captionSets.length > 1 && !audioOnly && <CaptionsPicker
                     sets={captionSets}
                     selected={shownCaptionSet}
                     screen={multiview ? number : null}
@@ -518,12 +526,16 @@ export function Player({
                     onPick={setAudioTrack}
                 />}
 
-                {profiles.length > 0 && <QualityPicker
+                {/* A channel without video has no quality to pick */}
+                {hasVideo && <QualityPicker
                     quality={tile.quality}
                     profiles={profiles}
-                    sourceWidth={stream.status === 'playing' ? stream.stream.sourceWidth : null}
-                    sourceHeight={stream.status === 'playing' ? stream.stream.sourceHeight : null}
-                    tooLarge={stream.status === 'playing' && stream.stream.tooLargeToTranscode}
+                    sourceWidth={playing?.sourceWidth ?? null}
+                    sourceHeight={playing?.sourceHeight ?? null}
+                    tooLarge={playing?.tooLargeToTranscode ?? false}
+                    // Like the qualities, it's offered until the channel turns out not to have it
+                    audioOnly={playing?.sourceHasAudio ?? true}
+                    audioBitrateKbps={playing?.audioBitrateKbps ?? null}
                     sourceBitrateKbps={sourceBitrateKbps}
                     screen={multiview ? number : null}
                     open={openMenu === 'quality'}
@@ -625,13 +637,15 @@ type StatusProps = {
     starting: boolean
     /** Whether playback has been stuck for a moment */
     stalled: boolean
+    /** Whether what plays has no picture */
+    audioOnly: boolean
     onRetry: () => void
 };
 
 /**
  * Covers the picture with what's going on, while there's no picture or it's stuck.
  */
-function Status({stream, channel, starting, stalled, onRetry}: StatusProps) {
+function Status({stream, channel, starting, stalled, audioOnly, onRetry}: StatusProps) {
     let content: ReactNode;
     if (stream.status === 'off') {
         content =
@@ -654,6 +668,28 @@ function Status({stream, channel, starting, stalled, onRetry}: StatusProps) {
                 <p className="font-mono text-[clamp(0.6rem,3cqw,1.5rem)] uppercase tracking-[0.2em]">{channel.name}</p>}
             <TuningBar/>
         </div>;
+    } else if (audioOnly) {
+        // There's no picture, so the screen says what's on instead, and the bar takes the place of the label while
+        // it's stuck
+        content = <>
+            {/* An image of what's on, if the guide has one, dimmed far enough that the text stays readable on top of it */}
+            {channel?.now?.backdropUrl &&
+                <EpgImage src={channel.now.backdropUrl} className="absolute inset-0 size-full object-cover opacity-25"/>}
+            <div className="relative grid justify-items-center gap-[2cqw]">
+                {/*
+                    Small screens, such as in multiview, have no room for it above their control bar. It's keyed so that
+                    a logo that can't be loaded doesn't leave out the next channel's too.
+                */}
+                {channel && <ChannelLogo key={channel.id} channel={channel} logoOnly
+                                         className="hidden size-[clamp(2rem,12cqw,6rem)] @2xs:grid"/>}
+                {channel &&
+                    <p className="font-mono text-[clamp(0.6rem,3cqw,1.5rem)] uppercase tracking-[0.2em]">{channel.name}</p>}
+                {stalled
+                    ? <TuningBar/>
+                    : <p className="-mr-[0.4em] font-mono text-[clamp(0.5rem,2.5cqw,1rem)] uppercase tracking-[0.4em] text-muted">Audio
+                        only</p>}
+            </div>
+        </>;
     } else if (stalled) {
         // The picture is frozen, so only the bar shows on top of it
         content = <TuningBar/>;

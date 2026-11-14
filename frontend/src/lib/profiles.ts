@@ -4,6 +4,8 @@ import type {Profile} from './types';
 
 /** Keeps the channel's own quality, and only transcodes when the browser needs that */
 export const AUTO_QUALITY = 'auto';
+/** Leaves the video out. Nothing is transcoded for it, so it doesn't take being allowed to pick a quality. */
+export const AUDIO_QUALITY = 'audio';
 
 let profiles: Promise<Profile[]> | null = null;
 
@@ -47,6 +49,20 @@ export function profileSuits(profile: Profile, sourceWidth: number | null, sourc
     }
     // The box's long side goes with the channel's long side
     return Math.max(sourceWidth, sourceHeight) >= profile.width || Math.min(sourceWidth, sourceHeight) >= profile.height;
+}
+
+/**
+ * @param quality {@link AUTO_QUALITY}, {@link AUDIO_QUALITY} or a profile ID
+ * @return what to call the quality
+ */
+export function qualityName(quality: string, profiles: Profile[]): string {
+    if (quality === AUTO_QUALITY) {
+        return 'Auto';
+    }
+    if (quality === AUDIO_QUALITY) {
+        return 'Audio only';
+    }
+    return profiles.find((profile) => profile.id === quality)?.name ?? quality;
 }
 
 /**
