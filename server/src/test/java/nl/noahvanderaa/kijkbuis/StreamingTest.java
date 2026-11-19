@@ -85,6 +85,13 @@ class StreamingTest {
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/changing-audio.ts", "testsrc2=size=320x240:rate=25", 3, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
                 "-pix_fmt", "yuv420p", "-c:a", "mp2");
 
+        // The picture starts 1.5 seconds after the sound, like when ffmpeg joins a channel between keyframes: passed
+        // through video can only start at the next one. With one audio track and with two.
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/late-video.ts", "testsrc2=size=320x240:rate=25", "-vf", "setpts=PTS+1.5/TB",
+                "-c:v", "libx264", "-preset", "ultrafast", "-g", "25", "-pix_fmt", "yuv420p", "-fps_mode", "passthrough", "-c:a", "mp2");
+        upstream.serveSample(tempDir, SAMPLE_SECONDS, "/late-video-two-audio.ts", "testsrc2=size=320x240:rate=25", 2, "-vf", "setpts=PTS+1.5/TB",
+                "-c:v", "libx264", "-preset", "ultrafast", "-g", "25", "-pix_fmt", "yuv420p", "-fps_mode", "passthrough", "-c:a", "mp2");
+
         // No sound at all
         upstream.serveSample(tempDir, SAMPLE_SECONDS, "/silent.ts", "testsrc2=size=320x240:rate=25", 0, "-c:v", "libx264", "-preset", "ultrafast", "-g", "25",
                 "-pix_fmt", "yuv420p");
@@ -112,6 +119,10 @@ class StreamingTest {
                 %s
                 #EXTINF:-1,Changing audio
                 %s
+                #EXTINF:-1,Late video
+                %s
+                #EXTINF:-1,Late video with two audio tracks
+                %s
                 #EXTINF:-1,Silent
                 %s
                 #EXTINF:-1,Radio
@@ -122,7 +133,7 @@ class StreamingTest {
                 file:///etc/hosts
                 """.formatted(upstream.url("/live.ts"), upstream.url("/mpeg2.ts"), upstream.url("/mpeg2-unwatched.ts"),
                 upstream.url("/anamorphic.ts"), upstream.url("/large.ts"), upstream.url("/portrait.ts"), upstream.url("/missing.ts"), upstream.url("/two-audio.ts"), upstream.url("/changing-audio.ts"),
-                upstream.url("/silent.ts"), upstream.url("/radio.ts"), upstream.url("/two-audio-radio.ts")));
+                upstream.url("/late-video.ts"), upstream.url("/late-video-two-audio.ts"), upstream.url("/silent.ts"), upstream.url("/radio.ts"), upstream.url("/two-audio-radio.ts")));
 
         server = TestServer.start(tempDir, """
                 [streaming]
@@ -229,6 +240,27 @@ class StreamingTest {
         String master = server.get(second.get("playlistUrl").getAsString(), viewer).body();
         assertEquals(2, master.lines().filter((line) -> line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")).count(), master);
         stopStream(viewer, second);
+    }
+
+    @Test
+    void keepsVideoThatStartsAfterTheSoundInSync() throws Exception {
+        JsonObject stream = startStream(viewer, "Late video", null, null);
+        assertFalse(stream.get("transcoding").getAsBoolean(), "Transcoding fills the gap with the first picture");
+        Map<String, Double> starts = startTimes(viewer, stream.get("playlistUrl").getAsString());
+        assertEquals(1.5, starts.get("video") - starts.get("audio"), 0.1, "The video should start when it does on the channel");
+        stopStream(viewer, stream);
+
+        // Every playlist starts counting from its own first frame, unless told otherwise
+        JsonObject twoAudio = startStream(viewer, "Late video with two audio tracks", null, null);
+        assertEquals(2, twoAudio.getAsJsonArray("audioTracks").size());
+        String playlistUrl = twoAudio.get("playlistUrl").getAsString();
+        String streamPath = playlistUrl.substring(0, playlistUrl.lastIndexOf('/') + 1);
+        double video = startTimes(viewer, streamPath + "stream_0.m3u8").get("video");
+        for (int rendition = 1; rendition <= 2; rendition++) {
+            assertEquals(1.5, video - startTimes(viewer, streamPath + "stream_" + rendition + ".m3u8").get("audio"), 0.1,
+                    "The video should start when it does on the channel");
+        }
+        stopStream(viewer, twoAudio);
     }
 
     @Test
@@ -653,6 +685,21 @@ class StreamingTest {
     @NotNull
     private static String frameRate(@NotNull String session, @NotNull JsonObject stream) throws Exception {
         return ffprobe(download(session, stream.get("playlistUrl").getAsString()), "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate").strip();
+    }
+
+    /**
+     * @return when the video and audio of a playlist's first media segment start, by codec type. That's the time their
+     * fragments say they start at: players such as hls.js don't look at edit lists, so ffprobe is told not to either.
+     */
+    @NotNull
+    private static Map<String, Double> startTimes(@NotNull String session, @NotNull String playlistUrl) throws Exception {
+        String output = ffprobe(download(session, playlistUrl), "-ignore_editlist", "1", "-show_entries", "stream=codec_type,start_time");
+        Map<String, Double> starts = new HashMap<>();
+        for (String line : output.strip().split("\\R")) {
+            String[] fields = line.split(",");
+            starts.put(fields[0], Double.parseDouble(fields[1]));
+        }
+        return starts;
     }
 
     /**

@@ -122,6 +122,11 @@ final class FfmpegCommand {
                 "-hls_time", String.valueOf(SEGMENT_SECONDS),
                 "-hls_list_size", "6",
                 "-hls_segment_type", "fmp4",
+                // Every fragment says when it starts by the channel's clock, rather than counting from the first frame
+                // of its own track. Passed-through video can only start at a keyframe, which can be seconds after the
+                // first bit of sound, and otherwise only an edit list says the video starts later. hls.js and Chrome
+                // ignore those, so they played the video that much ahead of the sound.
+                "-hls_segment_options", "movflags=+frag_discont",
                 // With a playlist per audio track, every segment gets the time it was recorded. Players use those to
                 // line up a track's playlist with the video's when switching to it. Otherwise they go by the segments'
                 // numbers, which drift apart: the video can only be cut at the channel's keyframes, so its segments
